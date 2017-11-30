@@ -36,8 +36,8 @@ See the details of each RuleSet in the "application-account-ruleset-*" files.
 ## Initial Deployment
 
 ### Requirements
-1. Define a Compliance Account and an Application Account for POC.
-2. Have the ability to execute CloudFormation templates in all the accounts.
+1. Define an AWS Account to be the central location for the engine (Compliance Account).
+2. Define the AWS Accounts which must be covered by the engine ( Application Accounts).
 
 ### In Compliance Account
 1. Create a new bucket (ex. compliance-as-code-ruleset-112233445566) and note the name
