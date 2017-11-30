@@ -15,15 +15,14 @@
 Deploy a compliance-as-code engine to provide insights on the compliance status of AWS accounts and resources in a multi-account environment. In addition of the engine, a set of Rules can be deployed and is customizable depending on your enviroment. The set of Rules is named a RuleSet.
 
 ## Key Features
-1. Protect the code base: by centralizing the code base of all the compliance-as-code rules in an “compliance account”.
-2. Keep the cost effective approach by using describes and limiting the number of individual Config rules.
-3. Deploy easily in 10s of accounts: by having a 1-step process for each new application account via CFn.
-4. Adapt the RuleSet to the type of environment of the application: by specifying a single parameter during the deployment in the application account.
-5. Store all historical data of all the changes by storing the compliance record in a centralized DynamoDB 
-6. Store the current state of each rule of the application accounts in a centralized DynamoDB
-7. Display aggregate results in compliance account by using what the service team is building
-8. Display the details of non-compliant item directly in Config rule dashboard
-9. Notify on non-compliant item by triggering an SNS topic
+1. Display aggregate results in the compliance account using a data analytics tool (e.g. Amazon QuickSight, ...).
+2. Adapt the RuleSet to the type of environment of the application: by specifying a single parameter during the deployment in the application account.
+3. Store all historical data of all the changes by storing the compliance record in a centralized Amazon DynamoDB.
+4. Deploy easily in 10s of accounts: by having a 1-step process for each new application account via AWS CloudFormation.
+5. Protect the code base: by centralizing the code base of all the compliance-as-code rules in an “compliance account”.
+6. Keep the cost effective approach by using describes and limiting the number of individual AWS Config Rules.
+7. Display the details of non-compliant item directly in AWS Config rule dashboard.
+8. Notify on non-compliant item by triggering an SNS topic.
 
 ## Provided RuleSets with the Engine
 * ruleset-security-epics-baseline (Up to 16 rules - 30 controls)
@@ -37,7 +36,7 @@ See the details of each RuleSet in the "application-account-ruleset-*" files.
 
 ### Requirements
 1. Define an AWS Account to be the central location for the engine (Compliance Account).
-2. Define the AWS Accounts which must be covered by the engine ( Application Accounts).
+2. Define the AWS Accounts to be verified by the engine (Application Accounts).
 
 ### In Compliance Account
 1. Create a new bucket (ex. compliance-as-code-ruleset-112233445566) and note the name
@@ -53,11 +52,15 @@ Note 1: Depending on your selection for the enviroment type, the template will d
 
 Note 2: You can add the Compliance Account as an Application account. The compliance Account then checks the compliance of itself.
 
+Note 3: Only one RuleSet can be deployed in each Application account.
+
 ## Visualize all the data in the Compliance Account
 
 Two DynamoDB tables stores the current and past value for all your accounts
 - ComplianceStatusTable : Latest reported status
 - ComplianceEventsTable : All reported events
+
+Refer to the "analytics" directory, to add a data extraction and data transformation for further analytics.
 
 # Developer Guide
 
