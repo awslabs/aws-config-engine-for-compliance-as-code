@@ -1,0 +1,316 @@
+#
+# Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License").
+# You may not use this file except in compliance with the License.
+# A copy of the License is located at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# or in the "license" file accompanying this file. This file is distributed 
+# on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either 
+# express or implied. See the License for the specific language governing 
+# permissions and limitations under the License.
+#
+
+
+# This RuleSet provides guidance for achieving the Payment Card Industry Data Security Standard (PCI DSS) in Amazon Web Services. This content is provided "as is" with no guarantees expressed or implied.  The content of this RuleSet is subject to change without notice. Likewise, future changes to the AWS environment may alter some of the guidance in this RuleSet. Your PCI assessor may have different interpretations and the guidance in this RuleSet. None of the content in this RuleSet is intended to replace or supersede the requirements of the PCI DSS.
+#
+# Intent
+# While this RuleSet discusses AWS aspects useful for validating PCI compliance readiness as well as formal compliance, it does not offer step-by-step instructions on conducting an assessment of an AWS environment.  However, it may assist QSAs in understanding how an AWS environment can be PCI-compliant.
+#
+# The RuleSet provides the following configuration verifications leveraging AWS Config Rules. 
+#
+# This RuleSet has been designed to provide up to 7 managed rules in the Application account depending if it is Prod or Non-Prod.
+#
+# Rule | Rule Name                        | Prod   | NonProd
+# 1    | s3-bucket-public-read-prohibited | Yes    | Yes
+# 2    | ec2-ebs-volume-encrypted         | Yes    | Yes
+# 3    | rds-storage-encrypted            | Yes    | Yes
+# 4    | cloudtrail-enabled               | Yes    | Yes
+# 5    | acm-certificate-expiry-90-days   | Yes    | No
+# 6    | root-account-mfa-enabled         | Yes    | Yes
+# 7    | s3-bucket-ssl-requests-only      | Yes    | Yes                           
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Setup the PCI Guidance RuleSet in Application Account
+Parameters: 
+  CentralizedS3BucketConfigFullName:
+    ConstraintDescription: Enter DNS-compliant name
+    Description: Bucket name where Config logs are centrally stored. It is located in the Compliance Account.
+    Default: centralized-config-112233445566
+    MaxLength: 63
+    MinLength: 10
+    Type: String
+  ComplianceAccountId:
+    ConstraintDescription: 12 digits, no dashes
+    Description: Account ID of the Compliance Account is running from
+    Default: 112233445566
+    MaxLength: 12
+    MinLength: 12
+    Type: String
+  ComplianceAuditRoleName:
+    Description: Role Name of the Compliance Account Cross Account Role
+    Default: ComplianceAuditRole-DO-NOT-DELETE
+    Type: String
+#
+# BEGINNING OF THE PARAMETER SECTION TO BE ADAPTED TO YOUR NEEDS
+#
+
+  AccountClassification:
+  # AccountClassification is an input parameter in the RuleSetReporter resource.
+    Description: The classification of this AWS account.
+    Type: String
+    Default: 1-Sensitive
+    AllowedValues:
+      - 1-Sensitive
+      - 2-Confidential
+      - 3-Private
+      - 4-Public
+    ConstraintDescription: "must be one of those 4 values: 1-Sensitive | 2-Confidential | 3-Private | 4-Public"
+
+  EnvironmentType: 
+    Description: The environment type
+    Type: String
+    Default: prod
+    AllowedValues: 
+      - prod
+      - nonprod
+    ConstraintDescription: "must be one of those 2 values: prod | nonprod"
+
+Conditions:
+    CreateInProd: !Equals [ !Ref EnvironmentType, prod ]
+    CreateInNonProd: !Equals [ !Ref EnvironmentType, nonprod ]
+    CreateInProdNonProd: !Or [ !Equals [ !Ref EnvironmentType, prod ], !Equals [ !Ref EnvironmentType, nonprod ]]    
+
+#
+# END OF THE PARAMETER SECTION TO BE ADAPTED TO YOUR NEEDS
+#    
+
+Resources:
+
+#
+# BEGINNING OF THE RESOURCES SECTION TO BE ADAPTED TO YOUR NEEDS
+# Modify your rule set here (sample below). Each new Config rule of the ruleSet needs Config Rule creation. For managed rules, modify the Source parameter.
+#
+
+  RuleSetRule1:
+    Type: AWS::Config::ConfigRule
+    Condition: CreateInProdNonProd
+    Properties:
+      ConfigRuleName: s3-bucket-public-read-prohibited
+      Scope:
+        ComplianceResourceTypes: 
+        - 'AWS::S3::Bucket'
+      Source:
+        Owner: AWS
+        SourceIdentifier: S3_BUCKET_PUBLIC_READ_PROHIBITED
+    DependsOn: 
+    - ConfigurationRecorder
+    - DeliveryChannel
+
+  RuleSetRule2:
+    Type: AWS::Config::ConfigRule
+    Condition: CreateInProdNonProd
+    Properties:
+      ConfigRuleName: ec2-ebs-volume-encrypted
+      Scope:
+        ComplianceResourceTypes: 
+        - 'AWS::EC2::Volume'
+      Source:
+        Owner: AWS
+        SourceIdentifier: ENCRYPTED_VOLUMES
+    DependsOn: 
+    - ConfigurationRecorder
+    - DeliveryChannel
+
+  RuleSetRule3:
+    Type: AWS::Config::ConfigRule
+    Condition: CreateInProdNonProd
+    Properties:
+      ConfigRuleName: rds-storage-encrypted
+      Scope:
+        ComplianceResourceTypes: 
+        - 'AWS::RDS::DBInstance'
+      Source:
+        Owner: AWS
+        SourceIdentifier: RDS_STORAGE_ENCRYPTED
+    DependsOn: 
+    - ConfigurationRecorder
+    - DeliveryChannel
+
+  RuleSetRule4:
+    Type: AWS::Config::ConfigRule
+    Condition: CreateInProdNonProd
+    Properties:
+      ConfigRuleName: cloudtrail-enabled
+      Scope:
+        ComplianceResourceTypes: 
+        - 'AWS::CloudTrail::Trail'
+      Source:
+        Owner: AWS
+        SourceIdentifier: CLOUD_TRAIL_ENABLED
+      MaximumExecutionFrequency: TwentyFour_Hours
+    DependsOn: 
+    - ConfigurationRecorder
+    - DeliveryChannel
+
+  RuleSetRule5:
+    Type: AWS::Config::ConfigRule
+    Condition: CreateInProd
+    Properties:
+      ConfigRuleName: acm-certificate-expiry-90-days
+      Description: "Checks whether ACM Certificates in your account are marked for expiration within 90 days (configurable). Certificates provided by ACM are automatically renewed. ACM does not automatically renew certificates that you import."
+      InputParameters:
+       daysToExpiration: 90
+      Scope:
+        ComplianceResourceTypes: 
+        - 'AWS::ACM::Certificate'
+      Source:
+        Owner: AWS
+        SourceIdentifier: ACM_CERTIFICATE_EXPIRATION_CHECK
+      MaximumExecutionFrequency: TwentyFour_Hours
+    DependsOn: 
+    - ConfigurationRecorder
+    - DeliveryChannel
+
+  RuleSetRule6:
+    Type: AWS::Config::ConfigRule
+    Condition: CreateInProdNonProd
+    Properties:
+      ConfigRuleName: root-account-mfa-enabled
+      Description: "Checks whether the root user of your AWS account requires multi-factor authentication for console sign-in."
+      Source:
+        Owner: AWS
+        SourceIdentifier: ROOT_ACCOUNT_MFA_ENABLED
+      MaximumExecutionFrequency: TwentyFour_Hours
+    DependsOn: 
+    - ConfigurationRecorder
+    - DeliveryChannel
+
+  RuleSetRule7:
+    Type: AWS::Config::ConfigRule
+    Condition: CreateInProdNonProd
+    Properties:
+      ConfigRuleName: s3-bucket-ssl-requests-only
+      Description: "Checks whether S3 buckets have policies that require requests to use Secure Socket Layer (SSL)."
+      Scope:
+        ComplianceResourceTypes: 
+        - 'AWS::S3::Bucket'     
+      Source:
+        Owner: AWS
+        SourceIdentifier: S3_BUCKET_SSL_REQUESTS_ONLY
+    DependsOn: 
+    - ConfigurationRecorder
+    - DeliveryChannel
+ 
+#
+# END OF THE RESOURCES SECTION TO BE ADAPTED TO YOUR NEEDS
+#   
+
+  ConfigurationRecorder:
+    Type: AWS::Config::ConfigurationRecorder
+    Properties:
+      RecordingGroup:
+        AllSupported: 'True'
+        IncludeGlobalResourceTypes: 'True'
+      RoleARN: !Join ["", ["arn:aws:iam::", !Ref 'AWS::AccountId', ":role/service-role/AWSConfigRole-DO-NOT-DELETE"]]
+    DependsOn:
+    - AWSConfigRole
+
+  DeliveryChannel:
+    Type: AWS::Config::DeliveryChannel
+    Properties:
+      ConfigSnapshotDeliveryProperties:
+        DeliveryFrequency: TwentyFour_Hours
+      S3BucketName: !Ref CentralizedS3BucketConfigFullName
+
+  AWSConfigRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service: config.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSConfigRole
+      Path: /service-role/
+      RoleName: AWSConfigRole-DO-NOT-DELETE
+
+  ConfigS3WritePolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      Roles:
+      - AWSConfigRole-DO-NOT-DELETE
+      PolicyName: !Join
+        - '-'
+        - - ConfigS3Write
+          - !Ref 'AWS::AccountId'
+          - !Ref 'AWS::Region'
+      PolicyDocument:
+        Statement:
+        - Action:
+          - s3:PutObject
+          Effect: Allow
+          Resource:
+          - !Join [ "", [ "arn:aws:s3:::", !Ref CentralizedS3BucketConfigFullName, "/AWSLogs/", !Ref 'AWS::AccountId', "/*"] ]
+          Sid: !Join ["", ["ConfigS3Write", !Ref 'AWS::AccountId'] ]
+        Version: 2012-10-17
+    DependsOn:
+    - AWSConfigRole
+
+  CrossAcountAuditRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Ref ComplianceAuditRoleName
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              AWS: !Join ["", ["arn:aws:iam::", !Ref ComplianceAccountId, ":root"]]
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns:
+      - 'arn:aws:iam::aws:policy/SecurityAudit'
+      - 'arn:aws:iam::aws:policy/CloudWatchEventsReadOnlyAccess'
+      - 'arn:aws:iam::aws:policy/AWSCloudTrailReadOnlyAccess'
+
+  CrossAcountAuditRolePolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: 'config:PutEvaluations'
+            Effect: Allow
+            Resource: '*'
+        Version: 2012-10-17
+      PolicyName: PutEvaluationPolicy
+      Roles:
+       - !Ref ComplianceAuditRoleName
+    DependsOn: CrossAcountAuditRole
+
+  RuleSetReporter:
+    Type: AWS::Config::ConfigRule
+    Properties:
+      ConfigRuleName: Ruleset_Status_Reporter
+      InputParameters:
+        RoleToAssume: !Ref ComplianceAuditRoleName
+        AccountClassification: !Ref AccountClassification
+      Source:
+        Owner: CUSTOM_LAMBDA
+        SourceIdentifier: !Join [ ":", [ 'arn:aws:lambda', !Ref "AWS::Region", !Ref ComplianceAccountId, 'function', Ruleset_Status_Reporter ] ]
+        SourceDetails:
+        -
+          EventSource: "aws.config"
+          MaximumExecutionFrequency: One_Hour
+          MessageType: ScheduledNotification
+    DependsOn:
+    - ConfigurationRecorder
+    - DeliveryChannel

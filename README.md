@@ -27,7 +27,7 @@ Deploy a compliance-as-code engine to provide insights on the compliance status 
 
 ## Provided RuleSets with the Engine
 * ruleset-security-epics-baseline (Up to 16 rules - 30 controls)
-* ruleset-pci-guidance-8-rules (Up to 8 rules - 8 controls)
+* ruleset-pci-guidance-7-rules (Up to 7 rules - 7 controls)
 See the details of each RuleSet in the "application-account-ruleset-*" files.
 
 # User Guide
