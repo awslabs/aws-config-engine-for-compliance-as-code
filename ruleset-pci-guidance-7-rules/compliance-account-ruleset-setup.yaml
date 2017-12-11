@@ -43,6 +43,6 @@ Resources:
     Properties:
       TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !Ref SourceLambdaBucket, "compliance-account-rule-lambda-setup.yaml"]]
       Parameters:
-        RuleSetName: ruleset-status-reporter
+        RuleSetName: Ruleset_Status_Reporter
         SourceLambdaBucket: !Ref SourceLambdaBucket
         LambdaRuleRoleARN: !Ref LambdaRuleIAMRoleARN
