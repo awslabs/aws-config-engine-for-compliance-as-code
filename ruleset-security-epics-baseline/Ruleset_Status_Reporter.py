@@ -24,9 +24,9 @@ SNS_TOPIC_ARN = ''
 
 # DEFINE CLOUDFORMATION S3 LOCATION
 # This controls enables the Compliance Validation of the Current deployment by verifying if the latest CFn template is deployed in the Application account. Add the cfn file in a specific bucket in the Compliance Account.
-CFN_APP_RULESET_STACK_NAME = 'Application-Account-Compliance-as-Code'
-CFN_APP_RULESET_S3_BUCKET = 'cac-few-ireland'
-CFN_APP_RULESET_TEMPLATE_NAME = 'application-account-ruleset-security-epics-baseline-setup.yaml'
+CFN_APP_RULESET_STACK_NAME = ''
+CFN_APP_RULESET_S3_BUCKET = ''
+CFN_APP_RULESET_TEMPLATE_NAME = ''
 
 
 def get_sts_session(event, rolename):

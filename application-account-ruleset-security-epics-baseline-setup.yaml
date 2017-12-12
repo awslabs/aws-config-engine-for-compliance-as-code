@@ -485,24 +485,24 @@ Resources:
     - ConfigurationRecorder
     - DeliveryChannel
     
-  RuleSetDetailedRuleLM4:
-    Condition: HighExtended
-    Type: AWS::Config::ConfigRule
-    Properties:
-      ConfigRuleName: 2_HIGH-LM_2_4-guardduty_enabled_centralized
-      InputParameters:
-        RoleToAssume: !Ref ComplianceAuditRoleName
-      Source:
-        Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', Logging_and_Monitoring ] ]
-        SourceDetails:
-        -
-          EventSource: 'aws.config'
-          MessageType: ScheduledNotification
-          MaximumExecutionFrequency: TwentyFour_Hours
-    DependsOn:
-    - ConfigurationRecorder
-    - DeliveryChannel
+  # RuleSetDetailedRuleLM4:
+    # Condition: HighExtended
+    # Type: AWS::Config::ConfigRule
+    # Properties:
+      # ConfigRuleName: 2_HIGH-LM_2_4-guardduty_enabled_centralized
+      # InputParameters:
+        # RoleToAssume: !Ref ComplianceAuditRoleName
+      # Source:
+        # Owner: CUSTOM_LAMBDA
+        # SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', Logging_and_Monitoring ] ]
+        # SourceDetails:
+        # -
+          # EventSource: 'aws.config'
+          # MessageType: ScheduledNotification
+          # MaximumExecutionFrequency: TwentyFour_Hours
+    # DependsOn:
+    # - ConfigurationRecorder
+    # - DeliveryChannel
     
   RuleSetDetailedRuleIS1:
     Condition: MediumExtended
