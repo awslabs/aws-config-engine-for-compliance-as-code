@@ -15,11 +15,19 @@
 
 import boto3
 import json
+import time
 from datetime import datetime
 import os
 
 # DEFINE SNS TOPIC
-SNS_TOPIC_ARN= ""
+SNS_TOPIC_ARN = ''
+
+# DEFINE CLOUDFORMATION S3 LOCATION
+# This controls enables the Compliance Validation of the Current deployment by verifying if the latest CFn template is deployed in the Application account. Add the cfn file in a specific bucket in the Compliance Account.
+CFN_APP_RULESET_STACK_NAME = 'Application-Account-Compliance-as-Code'
+CFN_APP_RULESET_S3_BUCKET = 'cac-few-ireland'
+CFN_APP_RULESET_TEMPLATE_NAME = 'application-account-ruleset-security-epics-baseline-setup.yaml'
+
 
 def get_sts_session(event, rolename):
     global STS_SESSION
@@ -54,6 +62,53 @@ def datetime_handler(x):
         return x.isoformat()
     raise TypeError("Unknown type")
 
+def validate_if_latest_cfn():
+    
+    cfn_client = STS_SESSION.client('cloudformation')
+
+    s3_client = boto3.client("s3")
+    object = s3_client.get_object(Bucket=CFN_APP_RULESET_S3_BUCKET,Key=CFN_APP_RULESET_TEMPLATE_NAME)
+    template = object["Body"].read().decode("utf-8")
+    
+    parameter_list = []
+    
+    for param in cfn_client.describe_stacks(StackName=CFN_APP_RULESET_STACK_NAME)['Stacks'][0]['Parameters']:
+        parameter_list.append(
+            {
+                'ParameterKey': param['ParameterKey'],
+                'UsePreviousValue': True
+            })
+    
+    response_create_change = cfn_client.create_change_set(
+        StackName=CFN_APP_RULESET_STACK_NAME,
+        TemplateBody = template,
+        ChangeSetName='ComplianceValidation',
+        Capabilities=['CAPABILITY_NAMED_IAM'],
+        Parameters=parameter_list
+        )
+
+    result = {}
+    
+    while cfn_client.describe_change_set(ChangeSetName=response_create_change["Id"])["Status"] != "CREATE_COMPLETE":
+        if cfn_client.describe_change_set(ChangeSetName=response_create_change["Id"])["Status"] == "FAILED":
+            result = {
+                "Annotation" : "This account runs the latest Compliance-as-code stack.",
+                "ComplianceType" : "COMPLIANT"
+            }
+            return result
+        time.sleep(3)
+
+    print("Change set" + cfn_client.describe_change_set(ChangeSetName=response_create_change["Id"]))
+    
+    result = {
+            "Annotation" : "This account is not running the latest Compliance-as-code stack. Contact the Security team.",
+            "ComplianceType" : "NON_COMPLIANT"
+        }
+    
+    cfn_client.delete_change_set(ChangeSetName=response_create_change["Id"])
+    
+    return result
+    
 def lambda_handler(event, context):
         
     invoking_event = json.loads(event['invokingEvent'])
@@ -71,7 +126,7 @@ def lambda_handler(event, context):
     dynamodb = boto3.client('dynamodb')
     
     config_all_rules = config.describe_config_rules()
-    print(config_all_rules)
+    # print(config_all_rules)
 
     for ConfigRules in config_all_rules["ConfigRules"]:
 
@@ -79,11 +134,8 @@ def lambda_handler(event, context):
         rule_compliance_summary = config.describe_compliance_by_config_rule(ConfigRuleNames=[ConfigRules["ConfigRuleName"]])
 
         if ConfigRules["ConfigRuleId"]==event['configRuleId']: 
-            print(rule_compliance_details)
+            # print(rule_compliance_details)
             continue        
-        
-        #print(rule_compliance_summary)
-        #print(rule_compliance_details)
         
         timestamp_lambda_exec = invoking_event['notificationCreationTime']   
         try:
@@ -93,8 +145,8 @@ def lambda_handler(event, context):
         
         for ResultIdentifiers in rule_compliance_details['EvaluationResults']:
             timestamp_now = str(datetime.now())+"+00:00"
-            print("Now = "+timestamp_now)
-            print("ResourceId: "+ ResultIdentifiers['EvaluationResultIdentifier']['EvaluationResultQualifier']['ResourceId'])
+            # print("Now = "+timestamp_now)
+            # print("ResourceId: "+ ResultIdentifiers['EvaluationResultIdentifier']['EvaluationResultQualifier']['ResourceId'])
             
             # Update the DynamoDB Events
             UpdateExpressionValue = "set RuleName =:n, ResourceType =:rt, ResourceID =:rid, ComplianceType =:c, LastResultRecordedTime =:lrrt, AccountID =:a"
@@ -131,8 +183,9 @@ def lambda_handler(event, context):
                 ExpressionAttributeValues=ExpressionAttribute
                 )
             
-            #print(SNS_TOPIC_ARN)
-            print(ResultIdentifiers['ComplianceType'])
+            # print(SNS_TOPIC_ARN)
+            # print(ResultIdentifiers['ComplianceType'])
+            
             if SNS_TOPIC_ARN != "" and ResultIdentifiers['ComplianceType']=="NON_COMPLIANT":
                 send_results_to_sns(ResultIdentifiers, invoking_event['awsAccountId'], timestamp_now)
         
@@ -169,15 +222,31 @@ def lambda_handler(event, context):
             ExpressionAttributeValues=ExpressionAttribute
             )
         
+        if CFN_APP_RULESET_STACK_NAME == "" or CFN_APP_RULESET_S3_BUCKET == "" or CFN_APP_RULESET_TEMPLATE_NAME == "":
+            config.put_evaluations(
+                Evaluations=[
+                    {
+                        "ComplianceResourceType": "AWS::Config::ConfigRule",
+                        "Annotation": "This is an annotation for " + ConfigRules["ConfigRuleName"],
+                        "ComplianceResourceId": ConfigRules["ConfigRuleName"],
+                        "ComplianceType": rule_compliance_summary['ComplianceByConfigRules'][0]['Compliance']['ComplianceType'],
+                        "OrderingTimestamp": timestamp_result_recorded_time
+                    },
+                ],
+                ResultToken=result_token
+            )
+    
+    if CFN_APP_RULESET_STACK_NAME != "" and CFN_APP_RULESET_S3_BUCKET != "" and CFN_APP_RULESET_TEMPLATE_NAME != "":
+        latest_cfn = validate_if_latest_cfn()
         config.put_evaluations(
-            Evaluations=[
-                {
-                    "ComplianceResourceType": "AWS::Config::ConfigRule",
-                    "Annotation": "This is an annotation for " + ConfigRules["ConfigRuleName"],
-                    "ComplianceResourceId": ConfigRules["ConfigRuleName"],
-                    "ComplianceType": rule_compliance_summary['ComplianceByConfigRules'][0]['Compliance']['ComplianceType'],
-                    "OrderingTimestamp": timestamp_result_recorded_time
-                },
-            ],
-            ResultToken=result_token
-        )
+                Evaluations=[
+                    {
+                        "ComplianceResourceType": "AWS::CloudFormation::Stack",
+                        "Annotation": latest_cfn["Annotation"],
+                        "ComplianceResourceId": CFN_APP_RULESET_TEMPLATE_NAME,
+                        "ComplianceType": latest_cfn["ComplianceType"],
+                        "OrderingTimestamp": timestamp_result_recorded_time
+                    },
+                ],
+                ResultToken=result_token
+            )

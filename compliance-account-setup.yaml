@@ -173,6 +173,23 @@ Resources:
     - ComplianceStatusDynamoDBTable
     - ComplianceEventsDynamoDBTable    
 
+  LambdaRuleS3Policy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      Roles: 
+      - LambdaForComplianceRuleRole
+      PolicyName: LambdaRuleS3Policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: 's3:GetObject'
+            Resource: '*'
+    DependsOn: 
+    - LambdaRuleIAMRole
+    - ComplianceStatusDynamoDBTable
+    - ComplianceEventsDynamoDBTable      
+    
   LambdaRuleAssumeRolePolicy:
     Type: 'AWS::IAM::Policy'
     Properties:

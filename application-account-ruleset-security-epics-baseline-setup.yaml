@@ -654,6 +654,23 @@ Resources:
       Roles:
        - !Ref ComplianceAuditRoleName
     DependsOn: CrossAcountAuditRole
+    
+  CrossAcountAuditRolePolicy2:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: 
+              - 'cloudformation:CreateChangeSet'
+              - 'cloudformation:Describe*'
+              - 'cloudformation:DeleteChangeSet'
+            Effect: Allow
+            Resource: '*'
+        Version: 2012-10-17
+      PolicyName: ChangeSetPolicy
+      Roles:
+       - !Ref ComplianceAuditRoleName
+    DependsOn: CrossAcountAuditRole
 
   RuleSetReporter:
     Type: AWS::Config::ConfigRule
