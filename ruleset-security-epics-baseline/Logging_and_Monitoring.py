@@ -20,6 +20,8 @@
 # 2.1 | cloudtrail_centralized_encrypted_lfi
 # 2.2 | cloudwatch_event_bus_centralized
 # 2.3 | config_enabled_centralized
+# 2.4 | guardduty_enabled_centralized
+#
 
 import json
 import boto3
@@ -37,12 +39,15 @@ AWS_CLOUDTRAIL_NAME = 'Security_Trail_DO-NOT-MODIFY'
 AWS_CLOUDTRAIL_S3_BUCKET_NAME = ''
 AWS_CLOUDTRAIL_KMS_KEY_ARN = ''
 
-## Specify the account ID (12 digits) where Amazon CloudWatch should send all events. Ideally it should be centralized security monitoring AWS Account. 
+## Specify the account ID (12 digits) where Amazon CloudWatch should send all events. Ideally, it should be a centralized security monitoring AWS Account. 
 AMAZON_CLOUDWATCH_EVENT_RULE_NAME = 'All_Events_to_Security_Monitoring_Account-DO-NOT-MODIFY'
 AMAZON_CLOUDWATCH_EVENT_BUS_ACCOUNT_ID = ''
 
 ## Specify the bucket name where AWS Config should be centralized, ideally in a centralized Logging AWS Account. The bucket can in another region and/or another account.
 AWS_CONFIG_S3_BUCKET_NAME = ''
+
+## Specify the account ID (12 digits) where Amazon GuardDuty should send all events. Ideally, it should be a centralized security monitoring AWS Account. 
+AMAZON_GUARDDUTY_ACCOUNT_ID = ''
 
 ########
 # Code #
@@ -354,6 +359,92 @@ def LM_2_3_config_enabled_centralized(event, rule_parameters):
         eval["OrderingTimestamp"]=json.loads(event["invokingEvent"])['notificationCreationTime']
         put_eval(eval, result_token)
 
+def LM_2_4_guardduty_enabled_centralized(event, rule_parameters):
+    # This rule verifies that Amazon GuardDuty and is centralized in a central AWS Account.
+    #
+    # Scope
+    # This rule covers all regions in one account from a single region and is triggered periodically.
+    #
+    # Prerequisites 
+    # Configure the following parameters in the Config Rules configuration: 
+    # 1) RoleToAssume [present by default] 
+    # Configure the following in the code of this lambda function
+    # 2) AMAZON_GUARDDUTY_ACCOUNT_ID [Account ID of the centralized Security Monitoring Account, 12-digit]
+    #
+    # Use cases
+    # The following logic is applied for each region: 
+    # GuardDuty is not configured -> NOT COMPLIANT
+    # GuardDuty is not enabled -> NOT COMPLIANT
+    # AMAZON_GUARDDUTY_ACCOUNT_ID is not a 12-digit string -> NOT COMPLIANT
+    # GuardDuty is not centralized in AMAZON_GUARDDUTY_ACCOUNT_ID and has no invitation -> NOT COMPLIANT
+    # GuardDuty is not centralized in AMAZON_GUARDDUTY_ACCOUNT_ID and has an invitation -> NOT COMPLIANT
+    # GuardDuty is enabled and centralized in AMAZON_GUARDDUTY_ACCOUNT_ID -> COMPLIANT
+
+    
+    regions = STS_SESSION.client("ec2").describe_regions()['Regions']
+        
+    for region in regions:
+        eval={}
+        region_session = get_sts_session(event, rule_parameters["RoleToAssume"], region['RegionName'])
+        guard_client = region_session.client("guardduty")
+        
+        eval["ComplianceResourceType"]="AWS::GuardDuty::Detector"
+        eval["ComplianceResourceId"]= region['RegionName'] + " " + event['configRuleArn'].split(":")[4]
+        
+        eval['DetectorsId'] = guard_client.list_detectors()['DetectorIds']
+        if len(eval['DetectorsId'])==0:
+            response= {
+                "ComplianceType": "NON_COMPLIANT",
+                "Annotation": "GuardDuty is not configured in that region."
+                }     
+        else:      
+            detector_info = guard_client.get_detector(DetectorId=eval['DetectorsId'][0])
+            eval['Status'] = detector_info['Status']
+
+            if eval['Status'] == "DISABLED":
+                response= {
+                    "ComplianceType": "NON_COMPLIANT",
+                    "Annotation": "GuardDuty is not enabled in that region."
+                    }
+            elif not re.match("^[0-9]{12}$",AMAZON_GUARDDUTY_ACCOUNT_ID):
+                response = {
+                    "ComplianceType": "NON_COMPLIANT",
+                    "Annotation": "The parameter \"AMAZON_GUARDDUTY_ACCOUNT_ID\" is not correct in the lambda code. Contact the Security team."
+                    }        
+            else:
+                gd_master = guard_client.get_master_account(DetectorId=eval['DetectorsId'][0])
+                print(gd_master)  
+                if len(gd_master["master"]) == 0:
+                    response = {
+                        "ComplianceType": "NON_COMPLIANT",
+                        "Annotation": "GuardDuty has no invitation from the Central account. Contact the Security team."
+                        }
+                else:
+                    for master in gd_master:
+                        if "AMAZON_GUARDDUTY_ACCOUNT_ID" != master["accountId"]:
+                            continue
+                        else:
+                            if master["relationshipStatus"] == "Pending":
+                                response = {
+                                    "ComplianceType": "NON_COMPLIANT",
+                                    "Annotation": "GuardDuty has an invitation from the Central account, but it is not accepted. Please accept the invitation."
+                                    }
+                            elif master["relationshipStatus"] != "Enabled":
+                                response = {
+                                    "ComplianceType": "NON_COMPLIANT",
+                                    "Annotation": "GuardDuty has an invitation from the Central account, but it is not in enabled or pending state. Contact the Security team."
+                                    }
+                            else:
+                                response = {
+                                    "ComplianceType": "COMPLIANT",
+                                    "Annotation": "GuardDuty has no invitation from the Central account. Contact the Security team."
+                                    }
+                        
+        eval["ComplianceType"]=response["ComplianceType"]
+        eval["Annotation"]=response["Annotation"]
+        eval["OrderingTimestamp"]=json.loads(event["invokingEvent"])['notificationCreationTime']
+        put_eval(eval, result_token)    
+
 def get_sts_session(event, rolename, region_name=False):
     sts = boto3.client("sts")
     RoleArn=str("arn:aws:iam::" + event['configRuleArn'].split(":")[4] + ":role/" + rolename)
@@ -428,3 +519,6 @@ def lambda_handler(event, context):
     
     if DiscreteModeRule == 3 or DiscreteModeRule == "All":  
         LM_2_3_config_enabled_centralized(event, rule_parameters)
+    
+    if DiscreteModeRule == 4 or DiscreteModeRule == "All":  
+        LM_2_4_guardduty_enabled_centralized(event, rule_parameters)
