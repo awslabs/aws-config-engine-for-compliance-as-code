@@ -47,6 +47,7 @@
 # | 2.1 | cloudtrail_centralized_encrypted_lfi | Custom  | CRITICAL    |
 # | 2.2 | cloudwatch_event_bus_centralized     | Custom  | CRITICAL    |
 # | 2.3 | config_enabled_centralized           | Custom  | HIGH        |
+# | 2.4 | guardduty_enabled_centralized        | Custom  | HIGH        |
 #
 # =======================
 # Infrastructure Security
