@@ -432,7 +432,7 @@ def lambda_handler(event, context):
                 event_to_sent={}
                 event_to_sent["item"] = item
                 event_to_sent["increment_24_days"] = increment_24_days
-                lambda_client.invoke(FunctionName='push_batch_ddb_24_items',InvocationType='Event',Payload=json.dumps(event_to_sent))
+                lambda_client.invoke(FunctionName='GenerateData_PushBatchDynamoDB24items',InvocationType='Event',Payload=json.dumps(event_to_sent))
         
         #Push to Status Dynamo
         basetime = datetime(2017, 11, 30, 0, random.randint(1,59), random.randint(1,59), random.randint(1,999999))
