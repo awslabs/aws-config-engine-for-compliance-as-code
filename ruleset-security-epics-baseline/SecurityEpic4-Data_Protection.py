@@ -50,7 +50,7 @@ def get_sts_session(event, rolename, region_name=False):
         profile_name=None)
     return(sts_session)
 
-def DP_4_1_kms_cmk_rotation_activated():
+def DP_4_1_kms_cmk_rotation_activated(event, rule_parameters):
     configuration_item = {}
 
     regions = STS_SESSION.client("ec2").describe_regions()['Regions']
@@ -62,21 +62,40 @@ def DP_4_1_kms_cmk_rotation_activated():
             continue
         else:
             for key in keys['Keys']:
+                eval = {}
+                eval["ComplianceResourceType"] = "AWS::KMS::Key"
+                eval["ComplianceResourceId"] = key['KeyArn']
+                if kms_client.describe_key(KeyId=key['KeyId'])["KeyMetadata"]["KeyManager"] == "AWS":
+                    continue
                 if kms_client.get_key_rotation_status(KeyId=key['KeyId'])['KeyRotationEnabled'] == True:
-                    ComplianceType = 'COMPLIANT'
+                    response = {
+                        "ComplianceType": "COMPLIANT",
+                        "Annotation": "The yearly rotation is activated for this key."
+                        }
                 else:
-                    ComplianceType = 'NON_COMPLIANT'
-                config.put_evaluations(
-                    Evaluations=[
-                        {
-                            "ComplianceResourceType": "AWS::KMS::Key",
-                            "ComplianceResourceId": key['KeyArn'],
-                            "ComplianceType": ComplianceType,
-                            "OrderingTimestamp": str(datetime.now())
-                        },
-                    ],
-                    ResultToken=result_token
-                )
+                    response = {
+                        "ComplianceType": "NON_COMPLIANT",
+                        "Annotation": "The yearly rotation is not activated for this key."
+                        }
+                eval["ComplianceType"]=response["ComplianceType"]
+                eval["Annotation"]=response["Annotation"]
+                eval["OrderingTimestamp"]=json.loads(event["invokingEvent"])['notificationCreationTime']
+                put_eval(eval, result_token)    
+
+def put_eval(eval,token):
+    config = STS_SESSION.client("config")
+    config.put_evaluations(
+        Evaluations=[
+            {
+                "ComplianceResourceType": eval["ComplianceResourceType"],
+                "ComplianceResourceId": eval["ComplianceResourceId"],
+                "ComplianceType": eval["ComplianceType"],
+                "Annotation": eval["Annotation"],
+                "OrderingTimestamp": eval["OrderingTimestamp"]
+            },
+        ],
+        ResultToken=token
+    )
 
 def check_discrete_mode(event):
     try:
@@ -107,7 +126,7 @@ def lambda_handler(event, context):
     DiscreteModeRule = check_discrete_mode(event)
     
     if DiscreteModeRule == 1 or DiscreteModeRule == "All":
-        DP_4_1_kms_cmk_rotation_activated()
+        DP_4_1_kms_cmk_rotation_activated(event, rule_parameters)
     
     
     
