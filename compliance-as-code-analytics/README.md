@@ -39,6 +39,27 @@ Note: The sample manifest to create the Data Store in QuickSight is named "quick
 ## Generate the CSV file
 1. Invoke the lambda function named "csv_ComplianceEventsTable_to_s3"
 2. Check the S3 bucket created as part of the initial deployment by the CloudFormation compliance-account-analytics-setup.yaml
+3. You may add a scheduler to execute this lambda function (daily for example)
+
+## Create a dashboard on Amazon QuickSight
+### Prepare the data set
+You need to create manually Calculated Fields.
+Here's some useful Formula examples:
+DataAge: dateDiff({RecordedInDDBTimestamp},now())
+WeightedClassification: ifelse({AccountClassification} = "1_Sensitive",4,{AccountClassification} = "2_Confidential",3,{AccountClassification} = "3_Private",2,{AccountClassification} = "4_Public",1,0)
+WeightedCriticality: ifelse({RuleCriticality} = "CRITICAL",4,{RuleCriticality} = "HIGH",3,{RuleCriticality} = "MEDIUM",2,{RuleCriticality} = "LOW",1,0)
+ClassCriti: {WeightedClassification} * {WeightedCriticality}
+
+### Create Visuals
+The following are visual you can leverage. The format is:
+Name of the Visual : type of QuickSight Visual - configuration of the Visual - filter on the Visual.
+
+Number of AWS Accounts : KPI - Value: AccountID (Count Distinct) - Filter: DataAge = 0
+Resources in all Accounts : Horizontal Stack Bar Chart - Y Axis: ResourceType; Value: ResourceID (Count Distinct) - Filter: DataAge = 0
+Account Distribution by Account Classification : Horizontal Stack Bar Chart - Y Axis: AccountClassification; Value: AccountID (Count Distinct) - Filter: DataAge = 0
+Rule Distribution by Rule Criticity : Horizontal Stack Bar Chart - Y Axis: RuleCriticality; Value: RuleName (Count Distinct) - Filter: DataAge = 0
+Accounts with current Non-Compliant Rules by ClassCriti : Horizontal Stack Bar Chart - Y Axis: AccountID; Value: RuleName (Count Distinct) - Filter: DataAge = 0 & ClassCriti = [12,16]
+Non-Compliance Events across all Resources by Account Classification : Line Chart - X Axis: RecordedInDDBTimestamp; Value: ResourceID (Count Distinct); Color: AccountClassification - Filter: DataAge = 0 & ComplianceType = "NON_COMPLIANT"
 
 ## Create a DataSample
 1. Modify the GenerateData lambda function code (if needed). Make sure not to create more than 8 accounts at a time, otherwise the Lambda function may timeout.
