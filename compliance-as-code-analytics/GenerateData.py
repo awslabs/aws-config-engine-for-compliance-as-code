@@ -26,10 +26,10 @@ global RULES_INIT
     
 RULES_INIT = {
         'Account': {
-            'NumberOfSensitive': 6,
-            'NumberOfConfidential': 0,
-            'NumberOfPrivate': 0,
-            'NumberOfPublic': 0
+            'NumberOfSensitive': 2,
+            'NumberOfConfidential': 1,
+            'NumberOfPrivate': 2,
+            'NumberOfPublic': 1
             },
         'Rules': [        
             {
