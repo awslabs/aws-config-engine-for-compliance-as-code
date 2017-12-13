@@ -39,7 +39,7 @@ Resources:
     Properties:
       TemplateURL: !Join ['/', ['https://s3.amazonaws.com', !Ref SourceLambdaBucket, 'compliance-account-rule-lambda-setup.yaml']]
       Parameters:
-        RuleSetName: Identity_and_Access_Management                      
+        RuleSetName: SecurityEpic1-Identity_and_Access_Management                      
         SourceLambdaBucket: !Ref SourceLambdaBucket
         LambdaRuleRoleARN: !Ref LambdaRuleIAMRoleARN
 
@@ -48,7 +48,7 @@ Resources:
     Properties:
       TemplateURL: !Join ['/', ['https://s3.amazonaws.com', !Ref SourceLambdaBucket, 'compliance-account-rule-lambda-setup.yaml']]
       Parameters:
-        RuleSetName: Logging_and_Monitoring             
+        RuleSetName: SecurityEpic2-Logging_and_Monitoring             
         SourceLambdaBucket: !Ref SourceLambdaBucket
         LambdaRuleRoleARN: !Ref LambdaRuleIAMRoleARN
 
@@ -57,7 +57,7 @@ Resources:
     Properties:
       TemplateURL: !Join ['/', ['https://s3.amazonaws.com', !Ref SourceLambdaBucket, 'compliance-account-rule-lambda-setup.yaml']]
       Parameters:
-        RuleSetName: Infrastructure_Security     
+        RuleSetName: SecurityEpic3-Infrastructure_Security     
         SourceLambdaBucket: !Ref SourceLambdaBucket
         LambdaRuleRoleARN: !Ref LambdaRuleIAMRoleARN
 
@@ -66,7 +66,7 @@ Resources:
     Properties:
       TemplateURL: !Join ['/', ['https://s3.amazonaws.com', !Ref SourceLambdaBucket, 'compliance-account-rule-lambda-setup.yaml']]
       Parameters:
-        RuleSetName: Data_Protection
+        RuleSetName: SecurityEpic4-Data_Protection
         SourceLambdaBucket: !Ref SourceLambdaBucket
         LambdaRuleRoleARN: !Ref LambdaRuleIAMRoleARN
         
@@ -75,7 +75,7 @@ Resources:
     # Properties:
       # TemplateURL: !Join ['/', ['https://s3.amazonaws.com', !Ref SourceLambdaBucket, 'compliance-account-rule-lambda-setup.yaml']]
       # Parameters:
-        # RuleSetName: Resilience              
+        # RuleSetName: SecurityEpic6-Resilience              
         # SourceLambdaBucket: !Ref SourceLambdaBucket
         # LambdaRuleRoleARN: !Ref LambdaRuleIAMRoleARN
 
@@ -88,6 +88,6 @@ Resources:
     Properties:
       TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !Ref SourceLambdaBucket, "compliance-account-rule-lambda-setup.yaml"]]
       Parameters:
-        RuleSetName: Ruleset_Status_Reporter
+        RuleSetName: SecurityEpic7-Compliance_Validation
         SourceLambdaBucket: !Ref SourceLambdaBucket
         LambdaRuleRoleARN: !Ref LambdaRuleIAMRoleARN

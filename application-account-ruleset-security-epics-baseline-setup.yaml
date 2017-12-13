@@ -75,6 +75,13 @@
 # | --- | ---------------------------------- | ------- | ----------- | 
 # | 6.1 | rds_multi_az_enabled               | Managed | HIGH        |
 #
+# =====================
+# Compliance Validation
+# =====================
+# | Id  | Name                                | Type    | Criticality | 
+# | --- | ----------------------------------- | ------- | ----------- | 
+# | 7.1 | compliance_ruleset_latest_installed | Custom  | HIGH        | 
+#
 
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Setup the CAF Security Baseline RuleSet in Application Account
@@ -194,7 +201,7 @@ Resources:
         RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', Identity_and_Access_Management ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic1-Identity_and_Access_Management ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -213,7 +220,7 @@ Resources:
         RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', Logging_and_Monitoring ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic2-Logging_and_Monitoring ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -232,7 +239,7 @@ Resources:
         RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', Infrastructure_Security ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic2-Logging_and_Monitoring ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -251,7 +258,7 @@ Resources:
         RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', Data_Protection ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic4-Data_Protection ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -296,7 +303,7 @@ Resources:
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 2_HIGH-DP_4_4-s3_bucket_ssl_requests_only
-      Description: "Checks whether S3 buckets have policies that require requests to use Secure Socket Layer (SSL)."
+      Description: "Checks whether S3 buckets have policies that require requests to use Secure Socket Layer (TLS/SSL)."
       Scope:
         ComplianceResourceTypes: 
         - 'AWS::S3::Bucket'     
@@ -312,6 +319,7 @@ Resources:
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 3_MEDIUM-DP_4_5-ec2_ebs_volume_encrypted
+      Description: "Checks whether EBS volumes are encrypted."
       Scope:
         ComplianceResourceTypes: 
         - 'AWS::EC2::Volume'
@@ -327,6 +335,7 @@ Resources:
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 2_HIGH-DP_4_6-rds_storage_encrypted
+      Description: "Checks whether RDS instances are encrypted."
       Scope:
         ComplianceResourceTypes: 
         - 'AWS::RDS::DBInstance'
@@ -342,6 +351,7 @@ Resources:
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 2_HIGH-R_6_1-rds_multi_az_enabled
+      Description: "Checks whether RDS instance have the Multi-AZ option activated."
       Scope:
         ComplianceResourceTypes: 
         - 'AWS::RDS::DBInstance'
@@ -357,11 +367,12 @@ Resources:
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 1_CRITICAL-IAM_1_1-root_no_access
+      Description: "Checks whether the AWS account root user was not used in the previous 24h."
       InputParameters:
         RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', Identity_and_Access_Management ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic1-Identity_and_Access_Management ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -376,11 +387,12 @@ Resources:
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 1_CRITICAL-IAM_1_2-root_mfa_enabled
+      Description: "Checks whether the AWS account root user has MFA enabled."
       InputParameters:
         RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', Identity_and_Access_Management ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic1-Identity_and_Access_Management ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -395,11 +407,12 @@ Resources:
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 1_CRITICAL-IAM_1_3-root_no_access_key
+      Description: "Checks whether the AWS account root user has no access keys configured."
       InputParameters:
         RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', Identity_and_Access_Management ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic1-Identity_and_Access_Management ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -418,7 +431,7 @@ Resources:
         RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', Identity_and_Access_Management ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic1-Identity_and_Access_Management ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -437,7 +450,7 @@ Resources:
         RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', Logging_and_Monitoring ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic2-Logging_and_Monitoring ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -456,7 +469,7 @@ Resources:
         RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', Logging_and_Monitoring ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic2-Logging_and_Monitoring ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -475,7 +488,7 @@ Resources:
         RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', Logging_and_Monitoring ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic2-Logging_and_Monitoring ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -485,24 +498,24 @@ Resources:
     - ConfigurationRecorder
     - DeliveryChannel
     
-  # RuleSetDetailedRuleLM4:
-    # Condition: HighExtended
-    # Type: AWS::Config::ConfigRule
-    # Properties:
-      # ConfigRuleName: 2_HIGH-LM_2_4-guardduty_enabled_centralized
-      # InputParameters:
-        # RoleToAssume: !Ref ComplianceAuditRoleName
-      # Source:
-        # Owner: CUSTOM_LAMBDA
-        # SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', Logging_and_Monitoring ] ]
-        # SourceDetails:
-        # -
-          # EventSource: 'aws.config'
-          # MessageType: ScheduledNotification
-          # MaximumExecutionFrequency: TwentyFour_Hours
-    # DependsOn:
-    # - ConfigurationRecorder
-    # - DeliveryChannel
+  RuleSetDetailedRuleLM4:
+    Condition: HighExtended
+    Type: AWS::Config::ConfigRule
+    Properties:
+      ConfigRuleName: 2_HIGH-LM_2_4-guardduty_enabled_centralized
+      InputParameters:
+        RoleToAssume: !Ref ComplianceAuditRoleName
+      Source:
+        Owner: CUSTOM_LAMBDA
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic2-Logging_and_Monitoring ] ]
+        SourceDetails:
+        -
+          EventSource: 'aws.config'
+          MessageType: ScheduledNotification
+          MaximumExecutionFrequency: TwentyFour_Hours
+    DependsOn:
+    - ConfigurationRecorder
+    - DeliveryChannel
     
   RuleSetDetailedRuleIS1:
     Condition: MediumExtended
@@ -513,7 +526,7 @@ Resources:
         RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', Infrastructure_Security ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic2-Logging_and_Monitoring ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -532,7 +545,7 @@ Resources:
         RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', Infrastructure_Security ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic2-Logging_and_Monitoring ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -551,7 +564,7 @@ Resources:
         RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', Data_Protection ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic4-Data_Protection ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -672,20 +685,38 @@ Resources:
        - !Ref ComplianceAuditRoleName
     DependsOn: CrossAcountAuditRole
 
+  CrossAcountAuditRolePolicy3:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: 
+              - 'guardduty:Get*'
+              - 'guardduty:List*'
+            Effect: Allow
+            Resource: '*'
+        Version: 2012-10-17
+      PolicyName: GuarddutyReadOnly
+      Roles:
+       - !Ref ComplianceAuditRoleName
+    DependsOn: CrossAcountAuditRole
+    
+    
+    
   RuleSetReporter:
     Type: AWS::Config::ConfigRule
     Properties:
-      ConfigRuleName: Ruleset_Status_Reporter
+      ConfigRuleName: 2_HIGH-CV_7_1-compliance_ruleset_latest_installed
       InputParameters:
         RoleToAssume: !Ref ComplianceAuditRoleName
         AccountClassification: !Ref AccountClassification
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ":", [ 'arn:aws:lambda', !Ref "AWS::Region", !Ref ComplianceAccountId, 'function', Ruleset_Status_Reporter ] ]
+        SourceIdentifier: !Join [ ":", [ 'arn:aws:lambda', !Ref "AWS::Region", !Ref ComplianceAccountId, 'function', SecurityEpic7-Compliance_Validation ] ]
         SourceDetails:
         -
           EventSource: "aws.config"
-          MaximumExecutionFrequency: One_Hour
+          MaximumExecutionFrequency: TwentyFour_Hours
           MessageType: ScheduledNotification
     DependsOn:
     - ConfigurationRecorder
