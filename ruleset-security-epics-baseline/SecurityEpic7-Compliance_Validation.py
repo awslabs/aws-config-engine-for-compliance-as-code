@@ -98,7 +98,7 @@ def validate_if_latest_cfn():
             return result
         time.sleep(3)
 
-    print("Change set" + cfn_client.describe_change_set(ChangeSetName=response_create_change["Id"]))
+    print("Change set" + str(cfn_client.describe_change_set(ChangeSetName=response_create_change["Id"])))
     
     result = {
             "Annotation" : "This account is not running the latest Compliance-as-code stack. Contact the Security team.",
