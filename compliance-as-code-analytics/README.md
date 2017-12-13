@@ -49,9 +49,9 @@ Here's some useful Formula examples:
 
 DataAge: dateDiff({RecordedInDDBTimestamp},now())
 
-WeightedClassification: ifelse({AccountClassification} = "1_Sensitive",4,{AccountClassification} = "2_Confidential",3,{AccountClassification} = "3_Private",2,{AccountClassification} = "4_Public",1,0)
+WeightedClassification: ifelse({AccountClassification} = "1-Sensitive",4,{AccountClassification} = "2-Confidential",3,{AccountClassification} = "3-Private",2,{AccountClassification} = "4-Public",1,0)
 
-WeightedCriticality: ifelse({RuleCriticality} = "CRITICAL",4,{RuleCriticality} = "HIGH",3,{RuleCriticality} = "MEDIUM",2,{RuleCriticality} = "LOW",1,0)
+WeightedCriticality: ifelse({RuleCriticality} = "1_CRITICAL",4,{RuleCriticality} = "2_HIGH",3,{RuleCriticality} = "3_MEDIUM",2,{RuleCriticality} = "4_LOW",1,0)
 
 ClassCriti: {WeightedClassification} * {WeightedCriticality}
 
