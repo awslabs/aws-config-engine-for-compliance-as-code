@@ -43,6 +43,8 @@ Note: The sample manifest to create the Data Store in QuickSight is named "quick
 
 ## Create a dashboard on Amazon QuickSight
 ### Prepare the data set
+Change the data type for the AccountID from Int to String, as AWS Accounts may start with one or more 0s.
+
 You need to create manually Calculated Fields.
 
 Here's some useful Formula examples:
@@ -68,12 +70,19 @@ Account Distribution by Account Classification : Horizontal Stack Bar Chart - Y 
 
 Rule Distribution by Rule Criticity : Horizontal Stack Bar Chart - Y Axis: RuleCriticality; Value: RuleName (Count Distinct) - Filter: DataAge = 0
 
-Accounts with current Non-Compliant Rules by ClassCriti : Horizontal Stack Bar Chart - Y Axis: AccountID; Value: RuleName (Count Distinct) - Filter: DataAge = 0 & ClassCriti = [12,16]
+Accounts with Critical Non-Compliant Rules : Horizontal Stack Bar Chart - Y Axis: AccountID; Value: RuleName (Count Distinct) - Filter: DataAge = 0 & ClassCriti = [12,16] & ComplianceType = "NON_COMPLIANT"
 
-Non-Compliance Events across all Resources by Account Classification : Line Chart - X Axis: RecordedInDDBTimestamp; Value: ResourceID (Count Distinct); Color: AccountClassification - Filter: DataAge = 0 & ComplianceType = "NON_COMPLIANT"
+Non-Compliant Resources by RuleName and by ClassCriti : Heat Map - Row: RuleName ; Columns: ClassCriti; Values ResourceID (Count Distinct) - Filter: DataAge = 0 & ComplianceType = "NON_COMPLIANT"
+
+Trend of Non-Compliant Ressources by Account Classification : Line Chart - X Axis: RecordedInDDBTimestamp; Value: ResourceID (Count Distinct); Color: AccountClassification - Filter: ComplianceType = "NON_COMPLIANT"
 
 ## Create a DataSample
-1. Modify the GenerateData lambda function code (if needed). Make sure not to create more than 8 accounts at a time, otherwise the Lambda function may timeout.
-2. Execute the GenerateData lambda function.
-Those steps can be repeated in order to create more data sample.
+1. Scale up your DynamoDB write to 500.
+2. Modify the GenerateData lambda function code (if needed). Make sure not to create more than 8 accounts at a time, otherwise the Lambda function may timeout.
+3. Execute the GenerateData lambda function.
+Steps 2 and 3 can be repeated in order to create more data sample.
+4. Scale down your DynamoDB write to 5.
 
+## Delete a DataSample
+1. Execute the DeleteData lambda function. It deletes the DynamoDB tables and re-create them. 
+2. Careful!! Scale down your DynamoDB write to 5, if you don't intend to generate data sample
