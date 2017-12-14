@@ -79,6 +79,18 @@ def validate_if_latest_cfn():
                 'UsePreviousValue': True
             })
     
+    # Delete old change_set, if necessary
+    try:
+        print("Verify if existing ChangeSet")
+        cfn_client.describe_change_set(ChangeSetName='ComplianceValidation', StackName=CFN_APP_RULESET_STACK_NAME)
+        print("Existing ChangeSet, time to delete")
+        cfn_client.delete_change_set(ChangeSetName='ComplianceValidation', StackName=CFN_APP_RULESET_STACK_NAME)
+        print("Waiting time")
+        time.sleep(5)
+    except:
+        print("No ChangeSet")
+
+    # Create new change_set
     response_create_change = cfn_client.create_change_set(
         StackName=CFN_APP_RULESET_STACK_NAME,
         TemplateBody = template,
@@ -86,7 +98,7 @@ def validate_if_latest_cfn():
         Capabilities=['CAPABILITY_NAMED_IAM'],
         Parameters=parameter_list
         )
-
+    
     result = {}
     
     while cfn_client.describe_change_set(ChangeSetName=response_create_change["Id"])["Status"] != "CREATE_COMPLETE":
