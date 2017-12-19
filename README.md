@@ -24,6 +24,9 @@ Deploy a compliance-as-code engine to provide insights on the compliance status 
 7. Display the details of non-compliant item directly in AWS Config rule dashboard.
 8. Notify on non-compliant item by triggering an SNS topic.
 
+## Demo
+See a demo there: https://youtu.be/VR_4209ewIo?t=40m
+
 ## Provided RuleSets with the Engine
 * ruleset-security-epics-baseline (Up to 16 rules - 30 controls)
 * ruleset-pci-guidance-7-rules (Up to 7 rules - 7 controls)
