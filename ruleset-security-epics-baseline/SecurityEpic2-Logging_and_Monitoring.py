@@ -387,12 +387,18 @@ def LM_2_4_guardduty_enabled_centralized(event, rule_parameters):
         eval={}
         region_session = get_sts_session(event, rule_parameters["RoleToAssume"], region['RegionName'])
         guard_client = region_session.client("guardduty")
-        
+
+            
         # eval["ComplianceResourceType"]="AWS::GuardDuty::Detector"
         eval["ComplianceResourceType"]="AWS::::Account"
         eval["ComplianceResourceId"]= region['RegionName'] + " " + event['configRuleArn'].split(":")[4]
         
-        eval['DetectorsId'] = guard_client.list_detectors()['DetectorIds']
+        try:
+            eval['DetectorsId'] = guard_client.list_detectors()['DetectorIds']
+        except:
+            print("Amazon GuardDuty is not available in "+ str(region['RegionName']) +".")
+            continue
+        
         if len(eval['DetectorsId'])==0:
             response= {
                 "ComplianceType": "NON_COMPLIANT",
