@@ -234,21 +234,20 @@ def lambda_handler(event, context):
             ExpressionAttributeValues=ExpressionAttribute
             )
         
-        if CFN_APP_RULESET_STACK_NAME == "" or CFN_APP_RULESET_S3_BUCKET == "" or CFN_APP_RULESET_TEMPLATE_NAME == "":
-            config.put_evaluations(
+    if CFN_APP_RULESET_STACK_NAME == "" or CFN_APP_RULESET_S3_BUCKET == "" or CFN_APP_RULESET_TEMPLATE_NAME == "":
+        config.put_evaluations(
                 Evaluations=[
                     {
-                        "ComplianceResourceType": "AWS::Config::ConfigRule",
-                        "Annotation": "This is an annotation for " + ConfigRules["ConfigRuleName"],
-                        "ComplianceResourceId": ConfigRules["ConfigRuleName"],
-                        "ComplianceType": rule_compliance_summary['ComplianceByConfigRules'][0]['Compliance']['ComplianceType'],
+                        "ComplianceResourceType": "AWS::::Account",
+                        "Annotation": "All the parameters (CFN_APP_RULESET_STACK_NAME, CFN_APP_RULESET_S3_BUCKET, CFN_APP_RULESET_TEMPLATE_NAME) must be set in the code of the Rule named Compliance_Validation. Contact the Security team.",
+                        "ComplianceResourceId": "Compliance-as-code CloudFormation",
+                        "ComplianceType": "NON_COMPLIANT",
                         "OrderingTimestamp": timestamp_result_recorded_time
                     },
                 ],
                 ResultToken=result_token
             )
-    
-    if CFN_APP_RULESET_STACK_NAME != "" and CFN_APP_RULESET_S3_BUCKET != "" and CFN_APP_RULESET_TEMPLATE_NAME != "":
+    else:
         latest_cfn = validate_if_latest_cfn()
         config.put_evaluations(
                 Evaluations=[
