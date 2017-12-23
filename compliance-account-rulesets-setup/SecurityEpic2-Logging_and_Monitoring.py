@@ -444,7 +444,7 @@ def LM_2_4_guardduty_enabled_centralized(event, rule_parameters):
                             else:
                                 response = {
                                     "ComplianceType": "COMPLIANT",
-                                    "Annotation": "GuardDuty has no invitation from the Central account. Contact the Security team."
+                                    "Annotation": "GuardDuty is enabled and centralized."
                                     }
                         
         eval["ComplianceType"]=response["ComplianceType"]
