@@ -378,6 +378,8 @@ def LM_2_4_guardduty_enabled_centralized(event, rule_parameters):
     # AMAZON_GUARDDUTY_ACCOUNT_ID is not a 12-digit string -> NOT COMPLIANT
     # GuardDuty is not centralized in AMAZON_GUARDDUTY_ACCOUNT_ID and has no invitation -> NOT COMPLIANT
     # GuardDuty is not centralized in AMAZON_GUARDDUTY_ACCOUNT_ID and has an invitation -> NOT COMPLIANT
+    # GuardDuty is centralized but not in AMAZON_GUARDDUTY_ACCOUNT_ID -> NOT COMPLIANT
+    # GuardDuty is centralized in AMAZON_GUARDDUTY_ACCOUNT_ID but is not in "Monitoring" state" -> NOT COMPLIANT
     # GuardDuty is enabled and centralized in AMAZON_GUARDDUTY_ACCOUNT_ID -> COMPLIANT
 
     
@@ -420,38 +422,54 @@ def LM_2_4_guardduty_enabled_centralized(event, rule_parameters):
                     }        
             else:
                 gd_master = guard_client.get_master_account(DetectorId=eval['DetectorsId'][0])
-                print(gd_master)  
-                if len(gd_master["master"]) == 0:
+                print(gd_master)
+                gd_invites = guard_client.list_invitations()
+                print(gd_invites)
+                
+                if "Master" not in gd_master and "Invitations" not in gd_invites:
                     response = {
                         "ComplianceType": "NON_COMPLIANT",
                         "Annotation": "GuardDuty has no invitation from the Central account. Contact the Security team."
                         }
-                else:
-                    for master in gd_master:
-                        if AMAZON_GUARDDUTY_ACCOUNT_ID != master["accountId"]:
+                elif "Master" not in gd_master and "Invitations" in gd_invites:
+                    central_account_invite = False
+                    for invite in gd_invites["Invitations"]:
+                        if invite["AccountId"] != AMAZON_GUARDDUTY_ACCOUNT_ID:
                             continue
                         else:
-                            if master["relationshipStatus"] == "Pending":
-                                response = {
-                                    "ComplianceType": "NON_COMPLIANT",
-                                    "Annotation": "GuardDuty has an invitation from the Central account, but it is not accepted. Please accept the invitation."
-                                    }
-                            elif master["relationshipStatus"] != "Enabled":
-                                response = {
-                                    "ComplianceType": "NON_COMPLIANT",
-                                    "Annotation": "GuardDuty has an invitation from the Central account, but it is not in enabled or pending state. Contact the Security team."
-                                    }
-                            else:
-                                response = {
-                                    "ComplianceType": "COMPLIANT",
-                                    "Annotation": "GuardDuty is enabled and centralized in that region."
-                                    }
+                            central_account_invite = True
+                    if central_account_invite == False:
+                        response = {
+                            "ComplianceType": "NON_COMPLIANT",
+                            "Annotation": "GuardDuty has no invitation from the Central account. Contact the Security team."
+                            }
+                    else:
+                        response = {
+                            "ComplianceType": "NON_COMPLIANT",
+                            "Annotation": "GuardDuty has an invitation from the Central account, but it is not accepted. Please accept the invitation."
+                            }
+                else:
+                    if AMAZON_GUARDDUTY_ACCOUNT_ID != gd_master["Master"]["AccountId"]:
+                        response = {
+                            "ComplianceType": "NON_COMPLIANT",
+                            "Annotation": "GuardDuty is centralized in another account (" + str(gd_master["Master"]["AccountId"]) + ") than the account specified as parameter (" + str(AMAZON_GUARDDUTY_ACCOUNT_ID) + ")."
+                            }
+                    else:
+                        if gd_master["Master"]["RelationshipStatus"] != "Monitored":
+                            response = {
+                                "ComplianceType": "NON_COMPLIANT",
+                                "Annotation": "GuardDuty has the correct Central account, but it is not in 'monitoring' state. Contact the Security team."
+                                }
+                        else:
+                            response = {
+                                "ComplianceType": "COMPLIANT",
+                                "Annotation": "GuardDuty is enabled and centralized in that region."
+                                }                        
                         
         eval["ComplianceType"]=response["ComplianceType"]
         eval["Annotation"]=response["Annotation"]
         eval["OrderingTimestamp"]=json.loads(event["invokingEvent"])['notificationCreationTime']
-        evaluations.append(eval)
-    return evaluations
+        put_eval(eval, result_token)
 
 def get_sts_session(event, rolename, region_name=False):
     sts = boto3.client("sts")
