@@ -13,9 +13,15 @@
 # permissions and limitations under the License.
 #
 
-#
+# ===========================
 # NO CHANGE SHOUD BE REQUIRED
+# ===========================
 # This code is launching a Nested Stack. To modify the RuleSet, modify compliance-account-ruleset-setup.yaml in the RuleSet directory (see README)
+#
+# =======
+# Summary
+# =======
+# This template is to be deployed in the Compliance Account. You must upload the content of the folder "compliance-account-rulesets-setup" ina bucket you control. Content is located here: https://github.com/awslabs/aws-config-engine-for-compliance-as-code/tree/master/compliance-account-rulesets-setup
 #
 
 AWSTemplateFormatVersion: 2010-09-09
@@ -23,14 +29,14 @@ Description: Sets up the Compliance Account with lambda functions used by custom
 Parameters:
   SourceLambdaBucket:
     Type: String
-    Description: Bucket name where lambda code zips are placed
+    Description: Bucket name of yours, where you placed the content of the folder "compliance-account-rulesets-setup". Content is located here: https://github.com/awslabs/aws-config-engine-for-compliance-as-code/tree/master/compliance-account-rulesets-setup
     MaxLength: 63
     MinLength: 3
-    ConstraintDescription: Enter the name not the ARN, must be in the same region than the stack
+    ConstraintDescription: Enter the name not the ARN, must be in the same region than the CloudFormation stack
     
   CentralizedS3BucketConfig:
     ConstraintDescription: Enter DNS-compliant prefix
-    Description: Bucket prefix where Config logs are stored. A dash and the account ID (12-digit) will be appended to it
+    Description: Bucket prefix where Config logs will be stored. The Bucket will be created with a dash and the account ID (12-digit) appended to the prefix you have entered.
     Default: centralized-config
     MaxLength: 63
     MinLength: 10
