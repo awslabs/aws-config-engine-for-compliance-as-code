@@ -428,7 +428,7 @@ def LM_2_4_guardduty_enabled_centralized(event, rule_parameters):
                         }
                 else:
                     for master in gd_master:
-                        if "AMAZON_GUARDDUTY_ACCOUNT_ID" != master["accountId"]:
+                        if AMAZON_GUARDDUTY_ACCOUNT_ID != master["accountId"]:
                             continue
                         else:
                             if master["relationshipStatus"] == "Pending":
@@ -450,7 +450,8 @@ def LM_2_4_guardduty_enabled_centralized(event, rule_parameters):
         eval["ComplianceType"]=response["ComplianceType"]
         eval["Annotation"]=response["Annotation"]
         eval["OrderingTimestamp"]=json.loads(event["invokingEvent"])['notificationCreationTime']
-        put_eval(eval, result_token)    
+        evaluations.append(eval)
+    return evaluations
 
 def get_sts_session(event, rolename, region_name=False):
     sts = boto3.client("sts")
