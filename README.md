@@ -29,9 +29,9 @@ See a demo there: https://youtu.be/VR_4209ewIo?t=40m
 
 ## Provided RuleSets with the Engine
 The set of Rules depends on the parameters you set during the deployment. Three RuleSets are available:
-# - Security Baseline: Include best-practices rules ordered by criticality
-# - PCI Guidance: Give guidance for achieving the Payment Card Industry Data Security Standard (PCI DSS).
-# - High-Availability: Focus on the reliability of your environment
+- Security Baseline: Include best-practices rules ordered by criticality
+- PCI Guidance: Give guidance for achieving the Payment Card Industry Data Security Standard (PCI DSS).
+- High-Availability: Focus on the reliability of your environment
 
 See the details of each RuleSet in the "application-account-rulesets-baseline-pci-guidance-ha-setup.yaml" file.
 
