@@ -444,7 +444,7 @@ def LM_2_4_guardduty_enabled_centralized(event, rule_parameters):
                             else:
                                 response = {
                                     "ComplianceType": "COMPLIANT",
-                                    "Annotation": "GuardDuty is enabled and centralized."
+                                    "Annotation": "GuardDuty is enabled and centralized in that region."
                                     }
                         
         eval["ComplianceType"]=response["ComplianceType"]
