@@ -919,7 +919,7 @@ Resources:
        - !Ref ComplianceAuditRoleName
     DependsOn: CrossAcountAuditRole
 
-  CrossAcountAuditRolePolicy3:
+  CrossAcountAuditRolePolicy2:
     Type: "AWS::IAM::Policy"
     Properties:
       PolicyDocument:
