@@ -99,7 +99,7 @@
 #
 # Identity and Access Management
 # ==============================
-# | Id  | Name                              | Type    | Criticality |
+# | Id  | Name                              | Type    | Criticity |
 # | --- | --------------------------------- | ------- | ----------- | 
 # | 1.1 | root_no_access                    | Custom  | CRITICAL    |
 # | 1.2 | root_mfa_enabled                  | Custom  | CRITICAL    |
@@ -108,7 +108,7 @@
 #
 # Logging and Monitoring
 # ======================
-# | Id  | Name                                 | Type    | Criticality |
+# | Id  | Name                                 | Type    | Criticity |
 # | --- | ------------------------------------ | ------- | ----------- | 
 # | 2.1 | cloudtrail_centralized_encrypted_lfi | Custom  | CRITICAL    |
 # | 2.2 | cloudwatch_event_bus_centralized     | Custom  | HIGH        |
@@ -116,7 +116,7 @@
 #
 # Infrastructure Security
 # =======================
-# | Id  | Name                                 | Type    | Criticality |
+# | Id  | Name                                 | Type    | Criticity |
 # | --- | ------------------------------------ | ------- | ----------- | 
 # | 3.1 | vpc_securitygroup_default_blocked    | Custom  | MEDIUM      |
 # | 3.2 | vpc_no_route_to_igw                  | Custom  | HIGH        |
@@ -124,7 +124,7 @@
 #
 # Data Protection
 # ===============
-# | Id  | Name                              | Type    | Criticality |
+# | Id  | Name                              | Type    | Criticity |
 # | --- | --------------------------------- | ------- | ----------- | 
 # | 4.1 | kms_cmk_rotation_activated        | Custom  | LOW         |
 # | 4.2 | s3_bucket_public_read_prohibited  | Managed | CRITICAL    |
@@ -135,13 +135,13 @@
 #
 # Resilience
 # ==========
-# | Id  | Name                               | Type    | Criticality |
+# | Id  | Name                               | Type    | Criticity |
 # | --- | ---------------------------------- | ------- | ----------- | 
 # | 6.1 | rds_multi_az_enabled               | Managed | HIGH        |
 #
 # Compliance Validation
 # =====================
-# | Id  | Name                                | Type    | Criticality | 
+# | Id  | Name                                | Type    | Criticity | 
 # | --- | ----------------------------------- | ------- | ----------- | 
 # | 7.1 | compliance_ruleset_latest_installed | Custom  | HIGH        | 
 #
@@ -168,7 +168,7 @@ Metadata:
           default: (Advanced User Only) RuleSet options
         Parameters: 
          - FullVisibility
-         - DeployDownToCriticality
+         - DeployDownToCriticity
 
 Parameters:
   CentralizedS3BucketConfigFullName:
@@ -195,14 +195,14 @@ Parameters:
 # 
 
   FullVisibility:
-    Description: Create more rules for a granular visibility, including an individual Rule Criticality. Select "false" will reduce cost and reduce the granular visibility. This option will apply all Rules from the Security Baseline RuleSet.
+    Description: Create more rules for a granular visibility, including an individual Rule Criticity. Select "false" will reduce cost and reduce the granular visibility. This option will apply all Rules from the Security Baseline RuleSet.
     Default: true
     AllowedValues:
       - true
       - false
     Type: String  
 
-  DeployDownToCriticality:
+  DeployDownToCriticity:
     Description: Choose deploy down to which Rule criticality. Useful to have an iterative approach in monitoring and fixing the compliance of existing accounts. It does not affect PCI guidance RuleSet, HA RuleSet and the Rule 7.1 on Compliance Validation. 
     Default: all
     AllowedValues:
@@ -254,18 +254,18 @@ Conditions:
         - !Equals [ !Ref AccountClassification, 2-Confidential]
         - !Equals [ !Ref AccountClassification, 3-Private]    
     Critical: !Or
-        - !Equals [ !Ref DeployDownToCriticality, all]
-        - !Equals [ !Ref DeployDownToCriticality, critical]
-        - !Equals [ !Ref DeployDownToCriticality, high]
-        - !Equals [ !Ref DeployDownToCriticality, medium]
+        - !Equals [ !Ref DeployDownToCriticity, all]
+        - !Equals [ !Ref DeployDownToCriticity, critical]
+        - !Equals [ !Ref DeployDownToCriticity, high]
+        - !Equals [ !Ref DeployDownToCriticity, medium]
     High: !Or
-        - !Equals [ !Ref DeployDownToCriticality, all]
-        - !Equals [ !Ref DeployDownToCriticality, high]
-        - !Equals [ !Ref DeployDownToCriticality, medium]
+        - !Equals [ !Ref DeployDownToCriticity, all]
+        - !Equals [ !Ref DeployDownToCriticity, high]
+        - !Equals [ !Ref DeployDownToCriticity, medium]
     Medium: !Or
-        - !Equals [ !Ref DeployDownToCriticality, all]
-        - !Equals [ !Ref DeployDownToCriticality, medium]
-    Low: !Equals [ !Ref DeployDownToCriticality, all]
+        - !Equals [ !Ref DeployDownToCriticity, all]
+        - !Equals [ !Ref DeployDownToCriticity, medium]
+    Low: !Equals [ !Ref DeployDownToCriticity, all]
     
     CriticalAccountClassificationAll: !And
         - !Condition Critical
@@ -407,7 +407,7 @@ Resources:
 #
 # BEGINNING OF THE RESOURCES SECTION TO BE ADAPTED TO YOUR NEEDS
 # Modify your rule set here. Each new Config rule of the ruleSet needs Config Rule creation. For managed rules, modify the Source parameter.
-# Add the RuleCriticality at the beginning of the name of the Rule, followed by a dash ("-"). Examples of the RuleCriticality: 1_CRITICAL | 2_HIGH | 3_MEDIUM | 4_LOW
+# Add the RuleCriticity at the beginning of the name of the Rule, followed by a dash ("-"). Examples of the RuleCriticity: 1_CRITICAL | 2_HIGH | 3_MEDIUM | 4_LOW
 #
 
   RuleSetRule1:

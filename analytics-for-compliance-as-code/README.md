@@ -53,9 +53,9 @@ DataAge: dateDiff({RecordedInDDBTimestamp},now())
 
 WeightedClassification: ifelse({AccountClassification} = "1-Sensitive",4,{AccountClassification} = "2-Confidential",3,{AccountClassification} = "3-Private",2,{AccountClassification} = "4-Public",1,0)
 
-WeightedCriticality: ifelse({RuleCriticality} = "1_CRITICAL",4,{RuleCriticality} = "2_HIGH",3,{RuleCriticality} = "3_MEDIUM",2,{RuleCriticality} = "4_LOW",1,0)
+WeightedCriticity: ifelse({RuleCriticity} = "1_CRITICAL",4,{RuleCriticity} = "2_HIGH",3,{RuleCriticity} = "3_MEDIUM",2,{RuleCriticity} = "4_LOW",1,0)
 
-ClassCriti: {WeightedClassification} * {WeightedCriticality}
+ClassCriti: {WeightedClassification} * {WeightedCriticity}
 
 ### Create Visuals
 The following are visual you can leverage. The format is:
@@ -68,7 +68,7 @@ Resources in all Accounts : Horizontal Stack Bar Chart - Y Axis: ResourceType; V
 
 Account Distribution by Account Classification : Horizontal Stack Bar Chart - Y Axis: AccountClassification; Value: AccountID (Count Distinct) - Filter: DataAge = 0
 
-Rule Distribution by Rule Criticity : Horizontal Stack Bar Chart - Y Axis: RuleCriticality; Value: RuleName (Count Distinct) - Filter: DataAge = 0
+Rule Distribution by Rule Criticity : Horizontal Stack Bar Chart - Y Axis: RuleCriticity; Value: RuleName (Count Distinct) - Filter: DataAge = 0
 
 Accounts with Critical Non-Compliant Rules : Horizontal Stack Bar Chart - Y Axis: AccountID; Value: RuleName (Count Distinct) - Filter: DataAge = 0 & ClassCriti = [12,16] & ComplianceType = "NON_COMPLIANT"
 

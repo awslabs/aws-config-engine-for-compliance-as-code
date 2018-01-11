@@ -36,109 +36,109 @@ RULES_INIT = {
             'RuleName': 'IAM_1_1_root_no_access',
             'ToNonCompliance': 0.02,
             'ToCompliance': 0.6,
-            'RuleCriticality': '1_CRITICAL',
+            'RuleCriticity': '1_CRITICAL',
             'ResourceGroup': 'Group2'
             },{
             'RuleName': 'IAM_1_2_root_mfa_enabled',
             'ToNonCompliance': 0.02,
             'ToCompliance': 0.6,
-            'RuleCriticality': '1_CRITICAL',
+            'RuleCriticity': '1_CRITICAL',
             'ResourceGroup': 'Group2'
             },{
             'RuleName': 'IAM_1_3_root_no_access_key',
             'ToNonCompliance': 0.02,
             'ToCompliance': 0.6,
-            'RuleCriticality': '1_CRITICAL',
+            'RuleCriticity': '1_CRITICAL',
             'ResourceGroup': 'Group2'
             },{
             'RuleName': 'IAM_1_4_iam_policy_no_full_star',
             'ToNonCompliance': 0.05,
             'ToCompliance': 0.4,
-            'RuleCriticality': '2_HIGH',
+            'RuleCriticity': '2_HIGH',
             'ResourceGroup': 'Group6'
             },
             {
             'RuleName': 'LM_2_1_cloudtrail_centralized_encrypted_lfi',
             'ToNonCompliance': 0.05,
             'ToCompliance': 0.4,
-            'RuleCriticality': '1_CRITICAL',
+            'RuleCriticity': '1_CRITICAL',
             'ResourceGroup': 'Group5'
             },
             {
             'RuleName': 'LM_2_2_cloudwatch_event_bus_centralized',
             'ToNonCompliance': 0.02,
             'ToCompliance': 0.6,
-            'RuleCriticality': '1_CRITICAL',
+            'RuleCriticity': '1_CRITICAL',
             'ResourceGroup': 'Group2'
             },
             {
             'RuleName': 'LM_2_3_config_enabled_centralized',
             'ToNonCompliance': 0.07,
             'ToCompliance': 0.3,
-            'RuleCriticality': '2_HIGH',
+            'RuleCriticity': '2_HIGH',
             'ResourceGroup': 'Group3'
             },
             {
             'RuleName': 'IS_3_1_vpc_securitygroup_default_blocked',
             'ToNonCompliance': 0.07,
             'ToCompliance': 0.3,
-            'RuleCriticality': '3_MEDIUM',
+            'RuleCriticity': '3_MEDIUM',
             'ResourceGroup': 'Group7'
             },
             {
             'RuleName': 'IS_3_2_vpc_main_route_table_no_igw',
             'ToNonCompliance': 0.05,
             'ToCompliance': 0.4,
-            'RuleCriticality': '2_HIGH',
+            'RuleCriticity': '2_HIGH',
             'ResourceGroup': 'Group8'
             },
             {
             'RuleName': 'DP_4_1_kms_cmk_rotation_activated',
             'ToNonCompliance': 0.02,
             'ToCompliance': 0.4,
-            'RuleCriticality': '4_LOW',
+            'RuleCriticity': '4_LOW',
             'ResourceGroup': 'Group9'
             },
             {
             'RuleName': 'DP_4_2_s3_bucket_public_read_prohibited',
             'ToNonCompliance': 0.05,
             'ToCompliance': 0.4,
-            'RuleCriticality': '2_HIGH',
+            'RuleCriticity': '2_HIGH',
             'ResourceGroup': 'Group1'
             },
             {
             'RuleName': 'DP_4_3_s3_bucket_public_write_prohibited',
             'ToNonCompliance': 0.07,
             'ToCompliance': 0.5,
-            'RuleCriticality': '3_MEDIUM',
+            'RuleCriticity': '3_MEDIUM',
             'ResourceGroup': 'Group1'
             },
             {
             'RuleName': 'DP_4_4_s3_bucket_ssl_requests_only',
             'ToNonCompliance': 0.08,
             'ToCompliance': 0.3,
-            'RuleCriticality': '2_HIGH',
+            'RuleCriticity': '2_HIGH',
             'ResourceGroup': 'Group1'
             },
             {
             'RuleName': 'DP_4_5_ec2_ebs_volume_encrypted',
             'ToNonCompliance': 0.08,
             'ToCompliance': 0.2,
-            'RuleCriticality': '3_MEDIUM',
+            'RuleCriticity': '3_MEDIUM',
             'ResourceGroup': 'Group10'
             },
             {
             'RuleName': 'DP_4_6_rds_storage_encrypted',
             'ToNonCompliance': 0.05,
             'ToCompliance': 0.2,
-            'RuleCriticality': '2_HIGH',
+            'RuleCriticity': '2_HIGH',
             'ResourceGroup': 'Group10'
             },
             {
             'RuleName': 'R_6_1_rds_multi_az_enabled',
             'ToNonCompliance': 0.05,
             'ToCompliance': 0.5,
-            'RuleCriticality': '2_HIGH',
+            'RuleCriticity': '2_HIGH',
             'ResourceGroup': 'Group11'
             }
         ],
@@ -318,7 +318,7 @@ def generate_data_set():
             data_set_entry['ResourceGroup']=rule['ResourceGroup']
             data_set_entry['ResourceType']=RULES_INIT['Resources'][rule['ResourceGroup']]['ResourceType']
             data_set_entry['Resources']=group_of_resource[rule['ResourceGroup']]
-            data_set_entry['RuleCriticality']=rule["RuleCriticality"]
+            data_set_entry['RuleCriticity']=rule["RuleCriticity"]
             data_set_entry["ToNonCompliance"] = rule["ToNonCompliance"]
             data_set_entry["ToCompliance"] = rule["ToCompliance"]
             
@@ -362,7 +362,7 @@ def push_1_day(basetime, item, day_increment):
                             'LastResultRecordedTime': {'S':timestamp},
                             'AccountID': {'S':item["AccountID"]},
                             'AccountClassification': {'S':item["AccountClassification"]},
-                            'RuleCriticality': {'S':item["RuleCriticality"]}
+                            'RuleCriticity': {'S':item["RuleCriticity"]}
                             }
                         }
                     }
@@ -397,7 +397,7 @@ def lambda_handler(event, context):
         item = {}
         item["RuleARN"]=rule["RuleARN"]
         item["RuleName"]=rule["RuleName"]
-        item["RuleCriticality"]=rule["RuleCriticality"]
+        item["RuleCriticity"]=rule["RuleCriticity"]
         item["ResourceType"]=rule["ResourceType"]
         item["AccountID"]=rule["AccountID"]
         item["AccountClassification"]=rule["AccountClassification"]
@@ -444,7 +444,7 @@ def lambda_handler(event, context):
             Key={
                 'RuleARN':{'S':item["RuleARN"]}
                 },
-            UpdateExpression="set RecordedInDDBTimestamp =:t, LastResultRecordedTime = :le, AccountID = :a, RuleName =:n, ComplianceType =:c, AccountClassification =:ac, RuleCriticality =:rc",
+            UpdateExpression="set RecordedInDDBTimestamp =:t, LastResultRecordedTime = :le, AccountID = :a, RuleName =:n, ComplianceType =:c, AccountClassification =:ac, RuleCriticity =:rc",
             ExpressionAttributeValues={
                 ':t': {'S':timestamp},
                 ':le': {'S':timestamp},
@@ -452,7 +452,7 @@ def lambda_handler(event, context):
                 ':n': {'S':item["RuleName"]},
                 ':c': {'S':final_compliance},
                 ':ac': {'S':item["AccountClassification"]},
-                ':rc': {'S':item["RuleCriticality"]}
+                ':rc': {'S':item["RuleCriticity"]}
                 }
             )
 

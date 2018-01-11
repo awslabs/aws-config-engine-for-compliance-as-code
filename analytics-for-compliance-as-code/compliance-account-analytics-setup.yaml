@@ -211,3 +211,23 @@ Resources:
     DependsOn: 
     - LambdaRuleIAMRole
     - ReportS3Bucket
+
+  AthenaNamedQueryInitDB:
+    Type: AWS::Athena::NamedQuery
+    Properties:
+      Database: "default"
+      Description: "(To be run 1st) A query to build database for advanced analytics"
+      Name: " Database For ComplianceAsCode"
+      QueryString: "CREATE DATABASE IF NOT EXISTS complianceascode"
+      
+  AthenaNamedQueryInitTable:
+    Type: AWS::Athena::NamedQuery
+    Properties:
+      Database: "complianceascode"
+      Description: "(To be run 2nd) A query to build table for advanced analytics"
+      Name: "Table For ComplianceAsCode"
+      QueryString: !Join 
+        - ""
+        - - "CREATE EXTERNAL TABLE IF NOT EXISTS complianceascode.events (AccountID string,ComplianceType string,RecordedInDDBTimestamp string,RuleName string,LastResultRecordedTime string,RuleARN string,ResourceID string,ResourceType string,AccountClassification string,RuleCriticity string) ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe' WITH SERDEPROPERTIES ('serialization.format' = ',', 'field.delim' = ',') LOCATION 's3://"
+          - !Join [ "-", [ !Ref ReportS3BucketName, !Ref 'AWS::AccountId']]
+          - "/' TBLPROPERTIES('has_encrypted_data'='false', 'skip.header.line.count'='1')"

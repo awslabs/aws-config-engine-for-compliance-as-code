@@ -28,7 +28,7 @@ def lambda_handler(event, context):
     
     with open(filename, 'w', newline='') as myfile:
         
-        fieldnames = ['AccountID', 'ComplianceType', 'RecordedInDDBTimestamp', 'RuleName', 'LastResultRecordedTime', 'RuleARN', 'ResourceID', 'ResourceType', 'AccountClassification', 'RuleCriticality']
+        fieldnames = ['AccountID', 'ComplianceType', 'RecordedInDDBTimestamp', 'RuleName', 'LastResultRecordedTime', 'RuleARN', 'ResourceID', 'ResourceType', 'AccountClassification', 'RuleCriticity']
         writer = csv.DictWriter(myfile, fieldnames=fieldnames)
         
         writer.writeheader()
@@ -48,7 +48,7 @@ def lambda_handler(event, context):
                     'ResourceID':item["ResourceID"]["S"],
                     'ResourceType':item["ResourceType"]["S"],
                     'AccountClassification':item["AccountClassification"]["S"],
-                    'RuleCriticality':item["RuleCriticality"]["S"]
+                    'RuleCriticity':item["RuleCriticity"]["S"]
                     })
             if "LastEvaluatedKey" in response:
                 response = ddb_client.scan(TableName="ComplianceEventsTable", ExclusiveStartKey=response["LastEvaluatedKey"])

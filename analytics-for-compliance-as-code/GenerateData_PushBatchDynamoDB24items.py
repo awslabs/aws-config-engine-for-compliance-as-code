@@ -55,7 +55,7 @@ def push_1_day(basetime, item, increment_24_days):
                             'LastResultRecordedTime': {'S':timestamp},
                             'AccountID': {'S':item["AccountID"]},
                             'AccountClassification': {'S':item["AccountClassification"]},
-                            'RuleCriticality': {'S':item["RuleCriticality"]}
+                            'RuleCriticity': {'S':item["RuleCriticity"]}
                             }
                         }
                     }

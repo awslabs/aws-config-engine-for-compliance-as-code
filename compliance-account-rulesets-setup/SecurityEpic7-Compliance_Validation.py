@@ -179,9 +179,9 @@ def lambda_handler(event, context):
                 'S': rule_parameters["AccountClassification"]
                 }
             
-            #if RuleCriticality is in the name
+            #if RuleCriticity is in the name
             if ConfigRules["ConfigRuleName"].split("-")[0] in ["1_CRITICAL", "2_HIGH", "3_MEDIUM", "4_LOW"]:
-                UpdateExpressionValue = UpdateExpressionValue +", RuleCriticality=:rc"
+                UpdateExpressionValue = UpdateExpressionValue +", RuleCriticity=:rc"
                 ExpressionAttribute[':rc'] = {
                 'S': ConfigRules["ConfigRuleName"].split("-")[0]
                 }
@@ -219,10 +219,10 @@ def lambda_handler(event, context):
             'S': rule_parameters["AccountClassification"]
             }
         if 'InputParameters' in ConfigRules: 
-            if 'RuleCriticality' in json.loads(ConfigRules['InputParameters']):
-                UpdateExpressionValue = UpdateExpressionValue +", RuleCriticality=:rc"
+            if 'RuleCriticity' in json.loads(ConfigRules['InputParameters']):
+                UpdateExpressionValue = UpdateExpressionValue +", RuleCriticity=:rc"
                 ExpressionAttribute[':rc'] = {
-                'S': json.loads(ConfigRules['InputParameters'])["RuleCriticality"]
+                'S': json.loads(ConfigRules['InputParameters'])["RuleCriticity"]
                 }
                     
         dynamodb.update_item(
