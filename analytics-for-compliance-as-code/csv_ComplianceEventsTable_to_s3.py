@@ -38,18 +38,21 @@ def lambda_handler(event, context):
         while loop:
             for item in response["Items"]:
                 count = count + 1
-                writer.writerow({
-                    'AccountID': item["AccountID"]["S"], 
-                    'ComplianceType': item["ComplianceType"]["S"], 
-                    'RecordedInDDBTimestamp': item["RecordedInDDBTimestamp"]["S"].split(".")[0],  
-                    'RuleName':item["RuleName"]["S"], 
-                    'LastResultRecordedTime':item["LastResultRecordedTime"]["S"].split(".")[0],  
-                    'RuleARN':item["RuleARN"]["S"],
-                    'ResourceID':item["ResourceID"]["S"],
-                    'ResourceType':item["ResourceType"]["S"],
-                    'AccountClassification':item["AccountClassification"]["S"],
-                    'RuleCriticity':item["RuleCriticity"]["S"]
-                    })
+                if 'RuleCriticity' not in item:
+                    print('No RuleCriticity on RuleName = ' + item["RuleName"]["S"] + ' ; RuleARN = ' + item["RuleARN"]["S"])
+                else:
+                    writer.writerow({
+                        'AccountID': item["AccountID"]["S"], 
+                        'ComplianceType': item["ComplianceType"]["S"], 
+                        'RecordedInDDBTimestamp': item["RecordedInDDBTimestamp"]["S"].split(".")[0],  
+                        'RuleName':item["RuleName"]["S"], 
+                        'LastResultRecordedTime':item["LastResultRecordedTime"]["S"].split(".")[0],  
+                        'RuleARN':item["RuleARN"]["S"],
+                        'ResourceID':item["ResourceID"]["S"],
+                        'ResourceType':item["ResourceType"]["S"],
+                        'AccountClassification':item["AccountClassification"]["S"],
+                        'RuleCriticity':item["RuleCriticity"]["S"]
+                        })
             if "LastEvaluatedKey" in response:
                 response = ddb_client.scan(TableName="ComplianceEventsTable", ExclusiveStartKey=response["LastEvaluatedKey"])
                 print("New response")
