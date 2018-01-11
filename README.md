@@ -30,7 +30,7 @@ See a demo there: https://youtu.be/VR_4209ewIo?t=40m
 
 ## Provided RuleSets with the Engine
 The set of Rules depends on the parameters you set during the deployment. Three RuleSets are available:
-- Security Baseline: Includes best-practices rules ordered by criticality
+- Security Baseline: Includes best-practices rules ordered by criticity
 - PCI Guidance: Gives guidance for achieving the Payment Card Industry Data Security Standard (PCI DSS).
 - High-Availability: Focuses on the reliability of your environment
 
