@@ -217,7 +217,7 @@ Resources:
     Properties:
       Database: "default"
       Description: "(To be run 1st) A query to build database for advanced analytics"
-      Name: " Database For ComplianceAsCode"
+      Name: "Database For ComplianceAsCode"
       QueryString: "CREATE DATABASE IF NOT EXISTS complianceascode"
       
   AthenaNamedQueryInitTable:
