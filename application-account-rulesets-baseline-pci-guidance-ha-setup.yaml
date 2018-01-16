@@ -100,50 +100,51 @@
 # Identity and Access Management
 # ==============================
 # | Id  | Name                              | Type    | Criticity |
-# | --- | --------------------------------- | ------- | ----------- | 
-# | 1.1 | root_no_access                    | Custom  | CRITICAL    |
-# | 1.2 | root_mfa_enabled                  | Custom  | CRITICAL    |
-# | 1.3 | root_no_access_key                | Custom  | CRITICAL    |
-# | 1.4 | iam_policy_no_full_star           | Custom  | HIGH        |
+# | --- | --------------------------------- | ------- | --------- | 
+# | 1.1 | root_no_access                    | Custom  | CRITICAL  |
+# | 1.2 | root_mfa_enabled                  | Custom  | CRITICAL  |
+# | 1.3 | root_no_access_key                | Custom  | CRITICAL  |
+# | 1.4 | iam_policy_no_full_star           | Custom  | HIGH      |
 #
 # Logging and Monitoring
 # ======================
 # | Id  | Name                                 | Type    | Criticity |
-# | --- | ------------------------------------ | ------- | ----------- | 
-# | 2.1 | cloudtrail_centralized_encrypted_lfi | Custom  | CRITICAL    |
-# | 2.2 | cloudwatch_event_bus_centralized     | Custom  | HIGH        |
-# | 2.3 | config_enabled_centralized           | Custom  | HIGH        |
+# | --- | ------------------------------------ | ------- | --------- | 
+# | 2.1 | cloudtrail_centralized_encrypted_lfi | Custom  | CRITICAL  |
+# | 2.2 | cloudwatch_event_bus_centralized     | Custom  | HIGH      |
+# | 2.3 | config_enabled_centralized           | Custom  | HIGH      |
+# | 2.4 | guardduty_enabled_centralized        | Custom  | HIGH      |
 #
 # Infrastructure Security
 # =======================
 # | Id  | Name                                 | Type    | Criticity |
-# | --- | ------------------------------------ | ------- | ----------- | 
-# | 3.1 | vpc_securitygroup_default_blocked    | Custom  | MEDIUM      |
-# | 3.2 | vpc_no_route_to_igw                  | Custom  | HIGH        |
-# | 3.3 | acm_certificate_expiry_90_days       | Managed | HIGH        |
+# | --- | ------------------------------------ | ------- | --------- | 
+# | 3.1 | vpc_securitygroup_default_blocked    | Custom  | MEDIUM    |
+# | 3.2 | vpc_no_route_to_igw                  | Custom  | HIGH      |
+# | 3.3 | acm_certificate_expiry_90_days       | Managed | HIGH      |
 #
 # Data Protection
 # ===============
 # | Id  | Name                              | Type    | Criticity |
-# | --- | --------------------------------- | ------- | ----------- | 
-# | 4.1 | kms_cmk_rotation_activated        | Custom  | LOW         |
-# | 4.2 | s3_bucket_public_read_prohibited  | Managed | CRITICAL    |
-# | 4.3 | s3_bucket_public_write_prohibited | Managed | MEDIUM      |
-# | 4.4 | s3_bucket_ssl_requests_only       | Managed | HIGH        |
-# | 4.5 | ec2_ebs_volume_encrypted          | Managed | MEDIUM      |
-# | 4.6 | rds_storage_encrypted             | Managed | HIGH        |
+# | --- | --------------------------------- | ------- | --------- | 
+# | 4.1 | kms_cmk_rotation_activated        | Custom  | LOW       |
+# | 4.2 | s3_bucket_public_read_prohibited  | Managed | CRITICAL  |
+# | 4.3 | s3_bucket_public_write_prohibited | Managed | MEDIUM    |
+# | 4.4 | s3_bucket_ssl_requests_only       | Managed | HIGH      |
+# | 4.5 | ec2_ebs_volume_encrypted          | Managed | MEDIUM    |
+# | 4.6 | rds_storage_encrypted             | Managed | HIGH      |
 #
 # Resilience
 # ==========
 # | Id  | Name                               | Type    | Criticity |
-# | --- | ---------------------------------- | ------- | ----------- | 
-# | 6.1 | rds_multi_az_enabled               | Managed | HIGH        |
+# | --- | ---------------------------------- | ------- | --------- | 
+# | 6.1 | rds_multi_az_enabled               | Managed | HIGH      |
 #
 # Compliance Validation
 # =====================
 # | Id  | Name                                | Type    | Criticity | 
-# | --- | ----------------------------------- | ------- | ----------- | 
-# | 7.1 | compliance_ruleset_latest_installed | Custom  | HIGH        | 
+# | --- | ----------------------------------- | ------- | --------- | 
+# | 7.1 | compliance_ruleset_latest_installed | Custom  | HIGH      | 
 #
 
 AWSTemplateFormatVersion: '2010-09-09'
@@ -169,6 +170,7 @@ Metadata:
         Parameters: 
          - FullVisibility
          - DeployDownToCriticity
+         - LM22override
 
 Parameters:
   CentralizedS3BucketConfigFullName:
@@ -237,8 +239,16 @@ Parameters:
     Default: false
     AllowedValues:
       - true
-      - false     
+      - false   
       
+  LM22override:
+    Description: Choose "deactivate" to not deploy. "FullVisibility" must be "true" to work. Let "default" to deploy depending on other parameters.
+    Type: String
+    Default: default
+    AllowedValues:
+      - default
+      - deactivate
+  
 Conditions:
     Extended: !Equals [ !Ref FullVisibility, true ]
     NotExtended: !Equals [ !Ref FullVisibility, false ]
@@ -267,136 +277,108 @@ Conditions:
         - !Equals [ !Ref DeployDownToCriticity, medium]
     Low: !Equals [ !Ref DeployDownToCriticity, all]
     
-    CriticalAccountClassificationAll: !And
-        - !Condition Critical
-        - !Condition AccountClassificationAll
-    HighAccountClassificationAll: !And
-        - !Condition High
-        - !Condition AccountClassificationAll
-    MediumAccountClassificationAll: !And
-        - !Condition Medium
-        - !Condition AccountClassificationAll    
-    LowAccountClassificationAll: !And
-        - !Condition Low
-        - !Condition AccountClassificationAll 
-
-    CriticalAccountClassificationPrivateOrAbove: !And
-        - !Condition Critical
-        - !Condition AccountClassificationPrivateOrAbove
-    HighAccountClassificationPrivateOrAbove: !And
-        - !Condition High
-        - !Condition AccountClassificationPrivateOrAbove
-    MediumAccountClassificationPrivateOrAbove: !And
-        - !Condition Medium
-        - !Condition AccountClassificationPrivateOrAbove    
-    LowAccountClassificationPrivateOrAbove: !And
-        - !Condition Low
-        - !Condition AccountClassificationPrivateOrAbove         
-    
-    CriticalAccountClassificationAllPCIguidance: !Or
-        - !Condition CriticalAccountClassificationAll
-        - !Condition PCIguidance
-    HighAccountClassificationAllPCIguidance: !Or
-        - !Condition HighAccountClassificationAll
-        - !Condition PCIguidance
-    MediumAccountClassificationAllPCIguidance: !Or
-        - !Condition MediumAccountClassificationAll
-        - !Condition PCIguidance    
-    LowAccountClassificationAllPCIguidance: !Or
-        - !Condition LowAccountClassificationAll
-        - !Condition PCIguidance   
-
-    CriticalAccountClassificationPrivateOrAbovePCIguidance: !Or
-        - !Condition CriticalAccountClassificationPrivateOrAbove
-        - !Condition PCIguidance
-    HighAccountClassificationPrivateOrAbovePCIguidance: !Or
-        - !Condition HighAccountClassificationPrivateOrAbove
-        - !Condition PCIguidance
-    MediumAccountClassificationPrivateOrAbovePCIguidance: !Or
-        - !Condition MediumAccountClassificationPrivateOrAbove
-        - !Condition PCIguidance    
-    LowAccountClassificationPrivateOrAbovePCIguidance: !Or
-        - !Condition LowAccountClassificationPrivateOrAbove
-        - !Condition PCIguidance   
-        
-    CriticalExtended: !And
-        - !Condition Critical
-        - !Condition Extended
-    HighExtended: !And
-        - !Condition High
-        - !Condition Extended
-    MediumExtended: !And
-        - !Condition Medium
-        - !Condition Extended    
-    LowExtended: !And
-        - !Condition Low
-        - !Condition Extended
-    
-    CriticalExtendedAccountClassificationAll: !And
-        - !Condition CriticalExtended
-        - !Condition AccountClassificationAll
-    HighExtendedAccountClassificationAll: !And
-        - !Condition HighExtended
-        - !Condition AccountClassificationAll
-    MediumExtendedAccountClassificationAll: !And
-        - !Condition MediumExtended
-        - !Condition AccountClassificationAll    
-    LowExtendedAccountClassificationAll: !And
-        - !Condition LowExtended
-        - !Condition AccountClassificationAll 
-
-    CriticalExtendedAccountClassificationPrivateOrAbove: !And
-        - !Condition CriticalExtended
-        - !Condition AccountClassificationPrivateOrAbove
-    HighExtendedAccountClassificationPrivateOrAbove: !And
-        - !Condition HighExtended
-        - !Condition AccountClassificationPrivateOrAbove
-    MediumExtendedAccountClassificationPrivateOrAbove: !And
-        - !Condition MediumExtended
-        - !Condition AccountClassificationPrivateOrAbove    
-    LowExtendedAccountClassificationPrivateOrAbove: !And
-        - !Condition LowExtended
-        - !Condition AccountClassificationPrivateOrAbove         
-    
-    CriticalExtendedAccountClassificationAllPCIguidance: !Or
-        - !Condition CriticalExtendedAccountClassificationAll
-        - !Condition PCIguidance
-    HighExtendedAccountClassificationAllPCIguidance: !Or
-        - !Condition HighExtendedAccountClassificationAll
-        - !Condition PCIguidance
-    MediumExtendedAccountClassificationAllPCIguidance: !Or
-        - !Condition MediumExtendedAccountClassificationAll
-        - !Condition PCIguidance    
-    LowExtendedAccountClassificationAllPCIguidance: !Or
-        - !Condition LowExtendedAccountClassificationAll
-        - !Condition PCIguidance   
-
-    CriticalExtendedAccountClassificationPrivateOrAbovePCIguidance: !Or
-        - !Condition CriticalExtendedAccountClassificationPrivateOrAbove
-        - !Condition PCIguidance
-    HighExtendedAccountClassificationPrivateOrAbovePCIguidance: !Or
-        - !Condition HighExtendedAccountClassificationPrivateOrAbove
-        - !Condition PCIguidance
-    MediumExtendedAccountClassificationPrivateOrAbovePCIguidance: !Or
-        - !Condition MediumExtendedAccountClassificationPrivateOrAbove
-        - !Condition PCIguidance    
-    LowExtendedAccountClassificationPrivateOrAbovePCIguidance: !Or
-        - !Condition LowExtendedAccountClassificationPrivateOrAbove
-        - !Condition PCIguidance   
-        
-    CriticalNotExtended: !And
+    IAM1notextended: !And
         - !Condition Critical
         - !Condition NotExtended
-    HighNotExtended: !And
+    LM2notextended: !And
+        - !Condition Critical
+        - !Condition NotExtended
+    IS3notextended: !And
         - !Condition High
         - !Condition NotExtended
-    MediumNotExtended: !And
-        - !Condition Medium
-        - !Condition NotExtended    
-    LowNotExtended: !And
+    DP4notextended: !And
         - !Condition Low
         - !Condition NotExtended
     
+    IAM11: !And
+        - !Condition Critical
+        - !Condition Extended
+        - !Condition AccountClassificationAll
+    IAM12: !Or
+        - !And
+          - !Condition Critical
+          - !Condition Extended
+          - !Condition AccountClassificationAll
+        - !Condition PCIguidance
+    IAM13: !And
+        - !Condition Critical
+        - !Condition Extended
+        - !Condition AccountClassificationAll
+    IAM14: !Or
+        - !And
+          - !Condition High
+          - !Condition Extended
+          - !Condition AccountClassificationAll
+        - !Condition PCIguidance
+    LM21: !Or
+        - !And
+          - !Condition Critical
+          - !Condition Extended
+          - !Condition AccountClassificationAll
+        - !Condition PCIguidance
+    LM22: !And
+        - !Condition High
+        - !Condition Extended
+        - !Condition AccountClassificationAll
+        - !Not [ !Equals [ !Ref LM22override, deactivate]]
+    LM23: !Or
+        - !And
+          - !Condition High
+          - !Condition Extended
+          - !Condition AccountClassificationAll
+        - !Condition PCIguidance
+    LM24: !Or
+        - !And
+          - !Condition High
+          - !Condition Extended
+          - !Condition AccountClassificationAll
+        - !Condition PCIguidance
+    IS31: !And
+        - !Condition Medium
+        - !Condition Extended
+        - !Condition AccountClassificationAll
+    IS32: !And
+        - !Condition High
+        - !Condition Extended
+        - !Condition AccountClassificationAll
+    IS33: !Or
+        - !And
+          - !Condition High
+          - !Condition AccountClassificationPrivateOrAbove
+        - !Condition PCIguidance
+    DP41: !Or
+        - !And
+          - !Condition Low
+          - !Condition Extended
+          - !Condition AccountClassificationPrivateOrAbove
+        - !Condition PCIguidance
+    DP42: !Or
+        - !And
+          - !Condition Critical
+          - !Condition AccountClassificationAll
+        - !Condition PCIguidance
+    DP43: !And
+        - !Condition Medium
+        - !Condition Extended
+        - !Condition AccountClassificationAll
+    DP44: !Or
+        - !And
+          - !Condition High
+          - !Condition AccountClassificationPrivateOrAbove
+        - !Condition PCIguidance
+    DP45: !Or
+        - !And
+          - !Condition Medium
+          - !Condition AccountClassificationPrivateOrAbove
+        - !Condition PCIguidance
+    DP46: !Or
+        - !And
+          - !Condition High
+          - !Condition AccountClassificationAll
+        - !Condition PCIguidance
+    R61: !And
+        - !Condition HA
+        - !Condition High
     
 #
 # END OF THE PARAMETER SECTION TO BE ADAPTED TO YOUR NEEDS
@@ -411,7 +393,7 @@ Resources:
 #
 
   RuleSetRule1:
-    Condition: CriticalNotExtended
+    Condition: IAM1notextended
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 1_CRITICAL-Identity_and_Access_Management
@@ -431,7 +413,7 @@ Resources:
     - DeliveryChannel
 
   RuleSetRule2:
-    Condition: CriticalNotExtended
+    Condition: LM2notextended
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 1_CRITICAL-Logging_and_Monitoring
@@ -451,7 +433,7 @@ Resources:
     - DeliveryChannel
 
   RuleSetRule3:
-    Condition: HighNotExtended
+    Condition: IS3notextended
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 2_HIGH-Infrastructure_Security
@@ -470,8 +452,8 @@ Resources:
     - ConfigurationRecorder
     - DeliveryChannel
 
-  RuleSetRule3:
-    Condition: LowNotExtended
+  RuleSetRule4:
+    Condition: DP4notextended
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 4_LOW-Data_Protection
@@ -492,7 +474,7 @@ Resources:
 
   RuleSetManagedRuleIS3:
     Type: AWS::Config::ConfigRule
-    Condition: HighAccountClassificationPrivateOrAbovePCIguidance
+    Condition: IS33
     Properties:
       ConfigRuleName: 2_HIGH-IS_3_3-acm_certificate_expiry_90_days
       Description: "Checks whether ACM Certificates in your account are marked for expiration within 90 days (configurable). Certificates provided by ACM are automatically renewed. ACM does not automatically renew certificates that you import."
@@ -510,7 +492,7 @@ Resources:
     - DeliveryChannel
     
   RuleSetManagedRuleDP2:
-    Condition: CriticalAccountClassificationAllPCIguidance
+    Condition: DP42
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 1_CRITICAL-DP_4_2-s3_bucket_public_read_prohibited
@@ -526,7 +508,7 @@ Resources:
     - DeliveryChannel    
 
   RuleSetManagedRuleDP3:
-    Condition: MediumAccountClassificationAll
+    Condition: DP43
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 3_MEDIUM-DP_4_3-s3_bucket_public_write_prohibited
@@ -542,7 +524,7 @@ Resources:
     - DeliveryChannel
     
   RuleSetManagedRuleDP4:
-    Condition: HighAccountClassificationPrivateOrAbovePCIguidance
+    Condition: DP44
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 2_HIGH-DP_4_4-s3_bucket_ssl_requests_only
@@ -558,7 +540,7 @@ Resources:
     - DeliveryChannel
 
   RuleSetManagedRuleDP5:
-    Condition: MediumAccountClassificationPrivateOrAbovePCIguidance
+    Condition: DP45
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 3_MEDIUM-DP_4_5-ec2_ebs_volume_encrypted
@@ -574,7 +556,7 @@ Resources:
     - DeliveryChannel
 
   RuleSetManagedRuleDP6:
-    Condition: HighAccountClassificationPrivateOrAbovePCIguidance
+    Condition: DP46
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 2_HIGH-DP_4_6-rds_storage_encrypted
@@ -590,7 +572,7 @@ Resources:
     - DeliveryChannel
 
   RuleSetManagedRuleR1:
-    Condition: HA
+    Condition: R61
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 2_HIGH-R_6_1-rds_multi_az_enabled
@@ -606,7 +588,7 @@ Resources:
     - DeliveryChannel
     
   RuleSetDetailedRuleIAM1:
-    Condition: CriticalExtendedAccountClassificationAll
+    Condition: IAM11
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 1_CRITICAL-IAM_1_1-root_no_access
@@ -626,7 +608,7 @@ Resources:
     - DeliveryChannel
 
   RuleSetDetailedRuleIAM2:
-    Condition: CriticalExtendedAccountClassificationAllPCIguidance
+    Condition: IAM12
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 1_CRITICAL-IAM_1_2-root_mfa_enabled
@@ -646,7 +628,7 @@ Resources:
     - DeliveryChannel
 
   RuleSetDetailedRuleIAM3:
-    Condition: CriticalExtendedAccountClassificationAll
+    Condition: IAM13
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 1_CRITICAL-IAM_1_3-root_no_access_key
@@ -666,7 +648,7 @@ Resources:
     - DeliveryChannel
 
   RuleSetDetailedRuleIAM4:
-    Condition: HighExtendedAccountClassificationAllPCIguidance
+    Condition: IAM14
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 2_HIGH-IAM_1_4-iam_policy_no_full_star
@@ -686,7 +668,7 @@ Resources:
     - DeliveryChannel
     
   RuleSetDetailedRuleLM1:
-    Condition: CriticalExtendedAccountClassificationAllPCIguidance
+    Condition: LM21
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 1_CRITICAL-LM_2_1-cloudtrail_centralized_encrypted_lfi
@@ -706,7 +688,7 @@ Resources:
     - DeliveryChannel
     
   RuleSetDetailedRuleLM2:
-    Condition: HighExtendedAccountClassificationAll
+    Condition: LM22
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 2_HIGH-LM_2_2-cloudwatch_event_bus_centralized
@@ -726,7 +708,7 @@ Resources:
     - DeliveryChannel
     
   RuleSetDetailedRuleLM3:
-    Condition: HighExtendedAccountClassificationAllPCIguidance
+    Condition: LM23
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 2_HIGH-LM_2_3-config_enabled_centralized
@@ -746,7 +728,7 @@ Resources:
     - DeliveryChannel
     
   RuleSetDetailedRuleLM4:
-    Condition: HighExtendedAccountClassificationAllPCIguidance
+    Condition: LM24
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 2_HIGH-LM_2_4-guardduty_enabled_centralized
@@ -766,7 +748,7 @@ Resources:
     - DeliveryChannel
     
   RuleSetDetailedRuleIS1:
-    Condition: MediumExtendedAccountClassificationAll
+    Condition: IS31
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 3_MEDIUM-IS_3_1-vpc_securitygroup_default_blocked
@@ -786,7 +768,7 @@ Resources:
     - DeliveryChannel
     
   RuleSetDetailedRuleIS2:
-    Condition: HighExtendedAccountClassificationAll
+    Condition: IS32
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 2_HIGH-IS_3_2-vpc_main_route_table_no_igw
@@ -806,7 +788,7 @@ Resources:
     - DeliveryChannel
     
   RuleSetDetailedRuleDP1:
-    Condition: LowExtendedAccountClassificationAllPCIguidance
+    Condition: DP41
     Type: AWS::Config::ConfigRule
     Properties:
       ConfigRuleName: 4_LOW-DP_4_1-kms_cmk_rotation_activated
