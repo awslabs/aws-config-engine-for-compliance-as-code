@@ -19,7 +19,7 @@ Deploy a compliance-as-code engine to provide insights on the compliance status 
 2. Classify your AWS accounts by sensitivity.
 3. Adapt the RuleSet to the type of environment of the application: by specifying which RuleSet during the deployment in the application account.
 4. Store all historical data of all the changes by storing the compliance record in a centralized Amazon DynamoDB.
-5. Deploy easily in 10s of accounts: by having a 1-step process for any new application account via AWS CloudFormation.
+5. Deploy easily in dozens of accounts: by having a 1-step process for any new application account via AWS CloudFormation.
 6. Protect the code base: by centralizing the code base of all the compliance-as-code rules in a “compliance account”.
 7. Enable a cost-effective approach by limiting the number of individual AWS Config Rules, when required.
 8. Make use of the AWS Config Rules Dashboard to display the details of compliance status of your AWS resources. 
@@ -27,6 +27,13 @@ Deploy a compliance-as-code engine to provide insights on the compliance status 
 
 ## Demo
 See a demo there: https://youtu.be/VR_4209ewIo?t=40m
+
+## High Level Design
+The engine for compliance-as-code design has the following key elements:
+- Application account(s): AWS account(s) which has a set of requirements in terms of compliance controls. The engine verifies the compliance controls implemented in this account.
+- Compliance account: the AWS account which contains the code representing the compliance requirements. It should be a restricted environment. Notification, Historical data storage and reporting are driven from this account.
+
+<img src="docs/images/engine_hl.png" alt="config-engine">
 
 ## Provided RuleSets with the Engine
 The set of Rules depends on the parameters you set during the deployment. Three RuleSets are available:
