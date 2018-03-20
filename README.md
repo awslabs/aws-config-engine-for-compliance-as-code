@@ -68,11 +68,7 @@ Note 2: You can add the Compliance Account as an Application account. The compli
 
 ## Visualize all the data in the Compliance Account using the Compliance-as-code Datalake
 
-Two DynamoDB tables stores the current and past value for all your accounts
-- ComplianceStatusTable : Latest reported status
-- ComplianceEventsTable : All reported events
-
-Refer to the "analytics-for-compliance-as-code" directory, to add a data extraction and data transformation for further analytics.
+Refer to the "datalake-for-compliance-as-code" directory, to add further analytics.
 
 # Developer Guide
 
