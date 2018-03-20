@@ -160,79 +160,40 @@ def lambda_handler(event, context):
             # print("Now = "+timestamp_now)
             # print("ResourceId: "+ ResultIdentifiers['EvaluationResultIdentifier']['EvaluationResultQualifier']['ResourceId'])
             
-            # Update the DynamoDB Events
-            UpdateExpressionValue = "set RuleName =:n, ResourceType =:rt, ResourceID =:rid, ComplianceType =:c, LastResultRecordedTime =:lrrt, AccountID =:a"
-                        
-            ExpressionAttribute = {}
-            ExpressionAttribute = {
-                    ':n': {'S':ConfigRules["ConfigRuleName"]},
-                    ':rt': {'S':ResultIdentifiers['EvaluationResultIdentifier']['EvaluationResultQualifier']['ResourceType']},
-                    ':rid': {'S':ResultIdentifiers['EvaluationResultIdentifier']['EvaluationResultQualifier']['ResourceId']},
-                    ':c': {'S':ResultIdentifiers['ComplianceType']},
-                    ':lrrt': {'S':str(ResultIdentifiers['ResultRecordedTime'])},
-                    ':a': {'S':invoking_event['awsAccountId']}
-                    }
+            # Record in Kinesis Firehose
             
-            if 'AccountClassification' in rule_parameters: 
-                UpdateExpressionValue = UpdateExpressionValue +", AccountClassification=:cl"
-                ExpressionAttribute[':cl'] = {
-                'S': rule_parameters["AccountClassification"]
+            kinesis_client = boto3.client("firehose")
+            
+            json_result = {
+                "RuleARN": ConfigRules["ConfigRuleArn"],
+                "RecordedInDDBTimestamp": timestamp_now.split(".")[0].split("+")[0],
+                "RuleName": ConfigRules["ConfigRuleName"],
+                "ResourceType": ResultIdentifiers['EvaluationResultIdentifier']['EvaluationResultQualifier']['ResourceType'],
+                "ResourceId": ResultIdentifiers['EvaluationResultIdentifier']['EvaluationResultQualifier']['ResourceId'],
+                "ComplianceType": ResultIdentifiers['ComplianceType'],
+                "LastResultRecordedTime": str(ResultIdentifiers['ResultRecordedTime']).split(".")[0].split("+")[0],
+                "AccountID": invoking_event['awsAccountId']
                 }
-            
+    
+            if 'AccountClassification' in rule_parameters: 
+                json_result["AccountClassification"] = rule_parameters["AccountClassification"]
+                
             #if RuleCriticity is in the name
             if ConfigRules["ConfigRuleName"].split("-")[0] in ["1_CRITICAL", "2_HIGH", "3_MEDIUM", "4_LOW"]:
-                UpdateExpressionValue = UpdateExpressionValue +", RuleCriticity=:rc"
-                ExpressionAttribute[':rc'] = {
-                'S': ConfigRules["ConfigRuleName"].split("-")[0]
+                json_result["RuleCriticity"] = ConfigRules["ConfigRuleName"].split("-")[0]
+                    
+            response = kinesis_client.put_record(
+                DeliveryStreamName='Firehose-Compliance-as-code',
+                Record={
+                    'Data': str(json.dumps(json_result) + "\n")
                 }
-            responseDDB=dynamodb.update_item(
-                TableName='ComplianceEventsTable', 
-                Key={
-                    'RuleARN':{'S':ConfigRules["ConfigRuleArn"]},
-                    'RecordedInDDBTimestamp':{'S':timestamp_now}
-                    },
-                UpdateExpression=UpdateExpressionValue,
-                ExpressionAttributeValues=ExpressionAttribute
-                )
+            )
             
             # print(SNS_TOPIC_ARN)
             # print(ResultIdentifiers['ComplianceType'])
             
             if SNS_TOPIC_ARN != "" and ResultIdentifiers['ComplianceType']=="NON_COMPLIANT":
                 send_results_to_sns(ResultIdentifiers, invoking_event['awsAccountId'], timestamp_now)
-        
-        # Update the DynamoDB Status
-        UpdateExpressionValue = "set RecordedInDDBTimestamp =:t, LastResultRecordedTime = :lrrt, AccountID = :a, RuleName =:n, ComplianceType =:c"
-                        
-        ExpressionAttribute = {}
-        ExpressionAttribute = {
-                ':t': {'S':timestamp_now},
-                ':lrrt': {'S':str(timestamp_result_recorded_time)},
-                ':a': {'S':invoking_event['awsAccountId']},
-                ':n': {'S':ConfigRules["ConfigRuleName"]},
-                ':c': {'S':rule_compliance_summary["ComplianceByConfigRules"][0]["Compliance"]["ComplianceType"]}
-                }
-        
-        if 'AccountClassification' in rule_parameters: 
-            UpdateExpressionValue = UpdateExpressionValue +", AccountClassification=:cl"
-            ExpressionAttribute[':cl'] = {
-            'S': rule_parameters["AccountClassification"]
-            }
-        if 'InputParameters' in ConfigRules: 
-            if 'RuleCriticity' in json.loads(ConfigRules['InputParameters']):
-                UpdateExpressionValue = UpdateExpressionValue +", RuleCriticity=:rc"
-                ExpressionAttribute[':rc'] = {
-                'S': json.loads(ConfigRules['InputParameters'])["RuleCriticity"]
-                }
-                    
-        dynamodb.update_item(
-            TableName='ComplianceStatusTable', 
-            Key={
-                'RuleARN':{'S':ConfigRules["ConfigRuleArn"]}
-                },
-            UpdateExpression=UpdateExpressionValue,
-            ExpressionAttributeValues=ExpressionAttribute
-            )
         
     if CFN_APP_RULESET_STACK_NAME == "" or CFN_APP_RULESET_S3_BUCKET == "" or CFN_APP_RULESET_TEMPLATE_NAME == "":
         config.put_evaluations(

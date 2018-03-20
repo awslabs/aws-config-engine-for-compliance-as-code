@@ -41,6 +41,14 @@ Parameters:
     MaxLength: 63
     MinLength: 10
     Type: String
+
+  CentralizedS3BucketComplianceEventName:
+    ConstraintDescription: Enter DNS-compliant prefix
+    Description: Bucket prefix where Compliance Event will be stored. The Bucket will be created with a dash and the account ID (12-digit) appended to the prefix you have entered.
+    Default: compliance-events-centralized
+    MaxLength: 63
+    MinLength: 10
+    Type: String
     
 Resources:
 
@@ -54,44 +62,96 @@ Resources:
         - LambdaRuleIAMRole
         - Arn
     DependsOn: LambdaRuleIAMRole
+  
+# Firehose
 
-  ComplianceEventsDynamoDBTable: 
-    Type: "AWS::DynamoDB::Table"
-    Properties: 
-      AttributeDefinitions: 
+  FirehoseDeliveryStreamIAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: FirehoseDeliveryStreamRole
+      Path: /service-role/
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/SecurityAudit'
+      AssumeRolePolicyDocument:
+       Statement:
+         - Action: 'sts:AssumeRole'
+           Effect: Allow
+           Principal:
+             Service: firehose.amazonaws.com
+       Version: 2012-10-17
+      Policies:
         - 
-          AttributeName: "RuleARN"
-          AttributeType: "S"
-        - 
-          AttributeName: "RecordedInDDBTimestamp"
-          AttributeType: "S"
-      KeySchema: 
-        - 
-          AttributeName: "RuleARN"
-          KeyType: "HASH"
-        - 
-          AttributeName: "RecordedInDDBTimestamp"
-          KeyType: "RANGE"
-      ProvisionedThroughput: 
-        ReadCapacityUnits: "5"
-        WriteCapacityUnits: "5"
-      TableName: "ComplianceEventsTable"
+          PolicyName: 'S3-access-for-Firehose'
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action: 
+                  - 's3:AbortMultipartUpload'
+                  - 's3:GetBucketLocation'
+                  - 's3:GetObject'
+                  - 's3:ListBucket'
+                  - 's3:ListBucketMultipartUploads'
+                  - 's3:PutObject'
+                Effect: 'Allow'
+                Resource:
+                  - !GetAtt CentralizedS3BucketComplianceEvent.Arn
+                  - !Join ['', [!GetAtt CentralizedS3BucketComplianceEvent.Arn, '/*']]
+    DependsOn: CentralizedS3BucketComplianceEvent
 
-  ComplianceStatusDynamoDBTable: 
-    Type: "AWS::DynamoDB::Table"
+  ComplianceFirehoseDeliveryStream: 
+    Type: "AWS::KinesisFirehose::DeliveryStream"
     Properties: 
-      AttributeDefinitions: 
-        - 
-          AttributeName: "RuleARN"
-          AttributeType: "S"
-      KeySchema: 
-        - 
-          AttributeName: "RuleARN"
-          KeyType: "HASH"
-      ProvisionedThroughput: 
-        ReadCapacityUnits: "5"
-        WriteCapacityUnits: "5"
-      TableName: "ComplianceStatusTable"
+      DeliveryStreamName: 'Firehose-Compliance-as-code'
+      ExtendedS3DestinationConfiguration:
+        BucketARN: !GetAtt CentralizedS3BucketComplianceEvent.Arn
+        BufferingHints:
+          IntervalInSeconds: '900'
+          SizeInMBs: '50'
+        CompressionFormat: GZIP
+        Prefix: compliance-as-code-events/
+        RoleARN: !GetAtt FirehoseDeliveryStreamIAMRole.Arn
+        ProcessingConfiguration:
+          Enabled: 'false'
+    DependsOn: FirehoseDeliveryStreamIAMRole
+    
+  CentralizedS3BucketComplianceEvent:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Join [ "-", [ !Ref CentralizedS3BucketComplianceEventName, !Ref 'AWS::AccountId']]
+      LifecycleConfiguration:
+        Rules:
+        - Status: Enabled
+          Transitions:
+          - StorageClass: STANDARD_IA
+            TransitionInDays: 30
+      Tags:
+      - Key: Owner
+        Value: Security
+      VersioningConfiguration:
+        Status: Enabled
+
+  LambdaRuleFirehosePolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      Roles:  
+      - LambdaForComplianceRuleRole
+      PolicyName: LambdaRuleFirehosePolicy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: 'firehose:PutRecord'
+            Resource: !Join 
+              - ':'
+              - - 'arn:aws:firehose'
+                - !Ref 'AWS::Region'
+                - !Ref 'AWS::AccountId'
+                - 'deliverystream/Firehose-Compliance-as-code'
+    DependsOn: 
+    - LambdaRuleIAMRole
+    - ComplianceFirehoseDeliveryStream  
+
+# END firehose
     
   LambdaRuleIAMRole:
     Type: 'AWS::IAM::Role'
@@ -130,38 +190,8 @@ Resources:
               - 'logs:PutLogEvents'
             Resource: 
               - !Join [ '', ['arn:aws:logs:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':log-group:/aws/lambda/*', ':*']]
-    DependsOn: LambdaRuleIAMRole
-
-  LambdaRuleDynamoPolicy:
-    Type: 'AWS::IAM::Policy'
-    Properties:
-      Roles:  
-      - LambdaForComplianceRuleRole
-      PolicyName: LambdaRuleDynamoPolicy
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Action: 'dynamodb:UpdateItem'
-            Resource: !Join 
-              - ':'
-              - - 'arn:aws:dynamodb'
-                - !Ref 'AWS::Region'
-                - !Ref 'AWS::AccountId'
-                - 'table/ComplianceStatusTable'
-          - Effect: Allow
-            Action: 'dynamodb:UpdateItem'
-            Resource: !Join 
-              - ':'
-              - - 'arn:aws:dynamodb'
-                - !Ref 'AWS::Region'
-                - !Ref 'AWS::AccountId'
-                - 'table/ComplianceEventsTable'
-    DependsOn: 
-    - LambdaRuleIAMRole
-    - ComplianceStatusDynamoDBTable
-    - ComplianceEventsDynamoDBTable    
-
+    DependsOn: LambdaRuleIAMRole  
+    
   LambdaRuleSNSPolicy:
     Type: 'AWS::IAM::Policy'
     Properties:
@@ -175,9 +205,7 @@ Resources:
             Action: 'sns:Publish'
             Resource: '*'
     DependsOn: 
-    - LambdaRuleIAMRole
-    - ComplianceStatusDynamoDBTable
-    - ComplianceEventsDynamoDBTable    
+    - LambdaRuleIAMRole   
 
   LambdaRuleS3Policy:
     Type: 'AWS::IAM::Policy'
@@ -192,9 +220,7 @@ Resources:
             Action: 's3:GetObject'
             Resource: '*'
     DependsOn: 
-    - LambdaRuleIAMRole
-    - ComplianceStatusDynamoDBTable
-    - ComplianceEventsDynamoDBTable      
+    - LambdaRuleIAMRole      
     
   LambdaRuleAssumeRolePolicy:
     Type: 'AWS::IAM::Policy'

@@ -12,18 +12,19 @@
   permissions and limitations under the License.
 
 # Objectives of the package
-Deploy a compliance-as-code engine to provide insights on the compliance status of AWS accounts and resources in a multi-account environment. In addition of the engine, a set of Rules can be deployed and is customizable depending on your environment. The defined set of Rules is named a RuleSet.
+Deploy a compliance-as-code engine to provide insights on the compliance status of AWS accounts and resources in a multi-account environment. In addition of the engine, several sets of Rules (or RuleSets) can be deployed and are customizable depending on your environment.
 
-## Key Features
-1. Visualize aggregate results in the compliance account using a data analytics tool (e.g. Amazon QuickSight, ...).
-2. Classify your AWS accounts by sensitivity.
-3. Adapt the RuleSet to the type of environment of the application: by specifying which RuleSet during the deployment in the application account.
-4. Store all historical data of all the changes by storing the compliance record in a centralized Amazon DynamoDB.
-5. Deploy easily in dozens of accounts: by having a 1-step process for any new application account via AWS CloudFormation.
-6. Protect the code base: by centralizing the code base of all the compliance-as-code rules in a “compliance account”.
-7. Enable a cost-effective approach by limiting the number of individual AWS Config Rules, when required.
-8. Make use of the AWS Config Rules Dashboard to display the details of compliance status of your AWS resources. 
-9. Notify on non-compliant resources by triggering an Amazon SNS topic.
+## The 10 Key Features
+1. Analyze current situation and trends from the compliance account as all data are pushed in a Datalake.
+2. Use your favorite analytics tool (Amazon QuickSight, Tableau, Splunk, etc.) as the data is formatted to be directly consumable.
+3. Classify your AWS accounts by sensitivity.
+4. Adapt the RuleSet to the type of environment of the application: by specifying which RuleSet during the deployment in the application account.
+5. Store all historical data of all the changes by storing the compliance record in a centralized and durable Amazon S3 bucket.
+6. Deploy easily in dozens of accounts: by having a 1-step process for any new application account via AWS CloudFormation.
+7. Protect the code base: by centralizing the code base of all the compliance-as-code rules in a “compliance account”.
+8. Enable a cost-effective approach by limiting the number of individual AWS Config Rules, when required.
+9. Make use of the AWS Config Rules Dashboard to display the details of compliance status of your AWS resources. 
+10. Notify on non-compliant resources by triggering an Amazon SNS topic.
 
 ## Demo
 See a demo there: https://youtu.be/VR_4209ewIo?t=40m
@@ -65,7 +66,7 @@ Note 1: Depending on your selection for the parameters, the template will deploy
 
 Note 2: You can add the Compliance Account as an Application account. The compliance Account then checks the compliance of itself.
 
-## Visualize all the data in the Compliance Account
+## Visualize all the data in the Compliance Account using the Compliance-as-code Datalake
 
 Two DynamoDB tables stores the current and past value for all your accounts
 - ComplianceStatusTable : Latest reported status
