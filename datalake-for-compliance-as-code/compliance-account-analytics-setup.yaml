@@ -35,7 +35,7 @@ Parameters:
   SourceLambdaBucket:
     Type: String
     Description: For demo purpose only - Bucket name where lambda code zip is placed
-    Default:input-the-bucket-name-where-you-upload-the-zip
+    Default: input-the-bucket-name-where-you-upload-the-zip
     MaxLength: 63
     MinLength: 3
     ConstraintDescription: Enter the name not the ARN, must be in the same region than the stack
