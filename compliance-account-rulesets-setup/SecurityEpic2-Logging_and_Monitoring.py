@@ -382,94 +382,94 @@ def LM_2_4_guardduty_enabled_centralized(event, rule_parameters):
     # GuardDuty is centralized in AMAZON_GUARDDUTY_ACCOUNT_ID but is not in "Monitoring" state" -> NOT COMPLIANT
     # GuardDuty is enabled and centralized in AMAZON_GUARDDUTY_ACCOUNT_ID -> COMPLIANT
 
-    
     regions = STS_SESSION.client("ec2").describe_regions()['Regions']
+    
+    if not re.match("^[0-9]{12}$",AMAZON_GUARDDUTY_ACCOUNT_ID):
+        put_eval(build_evaluation(event, "NON_COMPLIANT","The parameter \"AMAZON_GUARDDUTY_ACCOUNT_ID\" is not correct in the lambda code. Contact the Security team."))
+        return
         
     for region in regions:
-        eval={}
         region_session = get_sts_session(event, rule_parameters["RoleToAssume"], region['RegionName'])
         guard_client = region_session.client("guardduty")
 
-            
-        # eval["ComplianceResourceType"]="AWS::GuardDuty::Detector"
-        eval["ComplianceResourceType"]="AWS::::Account"
-        eval["ComplianceResourceId"]= region['RegionName'] + " " + event['configRuleArn'].split(":")[4]
-        
         try:
-            eval['DetectorsId'] = guard_client.list_detectors()['DetectorIds']
+            detectorIds = []
+            detectorIds = guard_client.list_detectors()['DetectorIds']
         except:
             print("Amazon GuardDuty is not available in "+ str(region['RegionName']) +".")
             continue
         
-        if len(eval['DetectorsId'])==0:
-            response= {
-                "ComplianceType": "NON_COMPLIANT",
-                "Annotation": "GuardDuty is not configured in that region."
-                }     
-        else:      
-            detector_info = guard_client.get_detector(DetectorId=eval['DetectorsId'][0])
-            eval['Status'] = detector_info['Status']
+        if len(detectorIds) == 0:
+            put_eval(build_evaluation(event, "NON_COMPLIANT", "GuardDuty is not configured.", region), result_token)
+            continue
+        
+        detector = detectorIds[0]
 
-            if eval['Status'] == "DISABLED":
-                response= {
-                    "ComplianceType": "NON_COMPLIANT",
-                    "Annotation": "GuardDuty is not enabled in that region."
-                    }
-            elif not re.match("^[0-9]{12}$",AMAZON_GUARDDUTY_ACCOUNT_ID):
-                response = {
-                    "ComplianceType": "NON_COMPLIANT",
-                    "Annotation": "The parameter \"AMAZON_GUARDDUTY_ACCOUNT_ID\" is not correct in the lambda code. Contact the Security team."
-                    }        
-            else:
-                gd_master = guard_client.get_master_account(DetectorId=eval['DetectorsId'][0])
-                print(gd_master)
-                gd_invites = guard_client.list_invitations()
-                print(gd_invites)
-                
-                if "Master" not in gd_master and "Invitations" not in gd_invites:
-                    response = {
-                        "ComplianceType": "NON_COMPLIANT",
-                        "Annotation": "GuardDuty has no invitation from the Central account. Contact the Security team."
-                        }
-                elif "Master" not in gd_master and "Invitations" in gd_invites:
-                    central_account_invite = False
-                    for invite in gd_invites["Invitations"]:
-                        if invite["AccountId"] != AMAZON_GUARDDUTY_ACCOUNT_ID:
-                            continue
-                        else:
-                            central_account_invite = True
-                    if central_account_invite == False:
-                        response = {
-                            "ComplianceType": "NON_COMPLIANT",
-                            "Annotation": "GuardDuty has no invitation from the Central account. Contact the Security team."
-                            }
-                    else:
-                        response = {
-                            "ComplianceType": "NON_COMPLIANT",
-                            "Annotation": "GuardDuty has an invitation from the Central account, but it is not accepted. Please accept the invitation."
-                            }
+        if not is_detector_enabled(guard_client, detector):
+            put_eval(build_evaluation(event, "NON_COMPLIANT", "GuardDuty is not enabled.", region), result_token)
+            continue
+        
+        if not AMAZON_GUARDDUTY_ACCOUNT_ID:
+            put_eval(build_evaluation(event, "NON_COMPLIANT", "GuardDuty is enabled, but the parameter AMAZON_GUARDDUTY_ACCOUNT_ID is not configured in the Compliance engine.", region), result_token)
+            continue
+        
+        if AMAZON_GUARDDUTY_ACCOUNT_ID == json.loads(event["invokingEvent"])['awsAccountId']:
+            put_eval(build_evaluation(event, "COMPLIANT", "GuardDuty is enabled. This account is the centralized account.", region), result_token)
+            continue
+        
+        gd_master = guard_client.get_master_account(DetectorId=detector)
+        
+        if "Master" not in gd_master:
+            try:
+                if is_there_invitation_from_master(guard_client):
+                    put_eval(build_evaluation(event, "NON_COMPLIANT", "GuardDuty has an invitation from the Central account, but it is not accepted. Please accept this invitation.", region), result_token)
+                    continue
                 else:
-                    if AMAZON_GUARDDUTY_ACCOUNT_ID != gd_master["Master"]["AccountId"]:
-                        response = {
-                            "ComplianceType": "NON_COMPLIANT",
-                            "Annotation": "GuardDuty is centralized in another account (" + str(gd_master["Master"]["AccountId"]) + ") than the account specified as parameter (" + str(AMAZON_GUARDDUTY_ACCOUNT_ID) + ")."
-                            }
-                    else:
-                        if gd_master["Master"]["RelationshipStatus"] != "Monitored":
-                            response = {
-                                "ComplianceType": "NON_COMPLIANT",
-                                "Annotation": "GuardDuty has the correct Central account, but it is not in 'monitoring' state. Contact the Security team."
-                                }
-                        else:
-                            response = {
-                                "ComplianceType": "COMPLIANT",
-                                "Annotation": "GuardDuty is enabled and centralized in that region."
-                                }                        
-                        
-        eval["ComplianceType"]=response["ComplianceType"]
-        eval["Annotation"]=response["Annotation"]
-        eval["OrderingTimestamp"]=json.loads(event["invokingEvent"])['notificationCreationTime']
-        put_eval(eval, result_token)
+                    put_eval(build_evaluation(event, "NON_COMPLIANT", "GuardDuty is enabled but not centralized. It has no invitation from the Central account.", region), result_token)
+                    continue
+            except:
+                # Still work if list_invitations() fails
+                put_eval(build_evaluation(event, "NON_COMPLIANT", "GuardDuty is enabled but not centralized.", region), result_token)
+                continue
+        
+        if AMAZON_GUARDDUTY_ACCOUNT_ID == gd_master["Master"]["AccountId"]:
+            if gd_master["Master"]["RelationshipStatus"] == "Monitored":
+                put_eval(build_evaluation(event, "COMPLIANT", "GuardDuty is enabled and centralized.", region), result_token)
+                continue
+            else:
+                put_eval(build_evaluation(event, "NON_COMPLIANT", "GuardDuty has the correct Central account, but it is not in 'Monitored' state.", region), result_token)
+                continue
+        else: 
+            put_eval(build_evaluation(event, "NON_COMPLIANT", "GuardDuty is centralized in another account (" + str(gd_master["Master"]["AccountId"]) + ") than the account specified as parameter (" + str(AMAZON_GUARDDUTY_ACCOUNT_ID) + ").", region), result_token)
+            continue
+
+def is_there_invitation_from_master(guard_client):
+    gd_invites = guard_client.list_invitations()
+    # list_invitations() return an empty array on Invitations. if no invitation
+    
+    for invite in gd_invites["Invitations"]:
+        if invite["AccountId"] != AMAZON_GUARDDUTY_ACCOUNT_ID:
+            continue
+        else:
+            return True
+            
+    return False
+    
+def is_detector_enabled(guard_client, detector):
+    detector_info = guard_client.get_detector(DetectorId=detector)
+    if detector_info['Status'] == "ENABLED":
+        return True
+    else:
+        return False
+    
+def build_evaluation(event, complianceType, annotation, region, eval_resource_type = "AWS::::Account"):
+    return {
+        "ComplianceResourceType": eval_resource_type,
+        "ComplianceResourceId": region['RegionName'] + " " + event['accountId'],
+        "ComplianceType": complianceType,
+        "Annotation": annotation,
+        "OrderingTimestamp": str(json.loads(event["invokingEvent"])['notificationCreationTime'])
+    }
 
 def get_sts_session(event, rolename, region_name=False):
     sts = boto3.client("sts")
