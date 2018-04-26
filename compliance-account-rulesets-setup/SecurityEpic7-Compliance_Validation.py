@@ -142,11 +142,10 @@ def lambda_handler(event, context):
 
     for ConfigRules in config_all_rules["ConfigRules"]:
 
-        rule_compliance_details = config.get_compliance_details_by_config_rule(ConfigRuleName=ConfigRules["ConfigRuleName"])
-        rule_compliance_summary = config.describe_compliance_by_config_rule(ConfigRuleNames=[ConfigRules["ConfigRuleName"]])
+        rule_compliance_details = config.get_compliance_details_by_config_rule(ConfigRuleName=ConfigRules["ConfigRuleName"],Limit=100)
 
-        if ConfigRules["ConfigRuleId"]==event['configRuleId']: 
-            # print(rule_compliance_details)
+        # Skip this rule in the result
+        if ConfigRules["ConfigRuleId"]==event['configRuleId']:
             continue        
         
         timestamp_lambda_exec = invoking_event['notificationCreationTime']   
@@ -155,45 +154,52 @@ def lambda_handler(event, context):
         except:
             continue
         
-        for ResultIdentifiers in rule_compliance_details['EvaluationResults']:
-            timestamp_now = str(datetime.now())+"+00:00"
-            # print("Now = "+timestamp_now)
-            # print("ResourceId: "+ ResultIdentifiers['EvaluationResultIdentifier']['EvaluationResultQualifier']['ResourceId'])
-            
-            # Record in Kinesis Firehose
-            
-            kinesis_client = boto3.client("firehose")
-            
-            json_result = {
-                "RuleARN": ConfigRules["ConfigRuleArn"],
-                "RecordedInDDBTimestamp": timestamp_now.split(".")[0].split("+")[0],
-                "RuleName": ConfigRules["ConfigRuleName"],
-                "ResourceType": ResultIdentifiers['EvaluationResultIdentifier']['EvaluationResultQualifier']['ResourceType'],
-                "ResourceId": ResultIdentifiers['EvaluationResultIdentifier']['EvaluationResultQualifier']['ResourceId'],
-                "ComplianceType": ResultIdentifiers['ComplianceType'],
-                "LastResultRecordedTime": str(ResultIdentifiers['ResultRecordedTime']).split(".")[0].split("+")[0],
-                "AccountID": invoking_event['awsAccountId']
-                }
-    
-            if 'AccountClassification' in rule_parameters: 
-                json_result["AccountClassification"] = rule_parameters["AccountClassification"]
+        kinesis_client = boto3.client("firehose")
+        
+        while True:
+            for ResultIdentifiers in rule_compliance_details['EvaluationResults']:
+                timestamp_now = str(datetime.now())+"+00:00"
+                # print("Now = "+timestamp_now)
+                # print("ResourceId: "+ ResultIdentifiers['EvaluationResultIdentifier']['EvaluationResultQualifier']['ResourceId'])
                 
-            #if RuleCriticity is in the name
-            if ConfigRules["ConfigRuleName"].split("-")[0] in ["1_CRITICAL", "2_HIGH", "3_MEDIUM", "4_LOW"]:
-                json_result["RuleCriticity"] = ConfigRules["ConfigRuleName"].split("-")[0]
+                # Record in Kinesis Firehose
+                json_result = {
+                    "RuleARN": ConfigRules["ConfigRuleArn"],
+                    "RecordedInDDBTimestamp": timestamp_now.split(".")[0].split("+")[0],
+                    "RuleName": ConfigRules["ConfigRuleName"],
+                    "ResourceType": ResultIdentifiers['EvaluationResultIdentifier']['EvaluationResultQualifier']['ResourceType'],
+                    "ResourceId": ResultIdentifiers['EvaluationResultIdentifier']['EvaluationResultQualifier']['ResourceId'],
+                    "ComplianceType": ResultIdentifiers['ComplianceType'],
+                    "LastResultRecordedTime": str(ResultIdentifiers['ResultRecordedTime']).split(".")[0].split("+")[0],
+                    "AccountID": invoking_event['awsAccountId']
+                    }
+        
+                if 'AccountClassification' in rule_parameters: 
+                    json_result["AccountClassification"] = rule_parameters["AccountClassification"]
                     
-            response = kinesis_client.put_record(
-                DeliveryStreamName='Firehose-Compliance-as-code',
-                Record={
-                    'Data': str(json.dumps(json_result) + "\n")
-                }
-            )
-            
-            # print(SNS_TOPIC_ARN)
-            # print(ResultIdentifiers['ComplianceType'])
-            
-            if SNS_TOPIC_ARN != "" and ResultIdentifiers['ComplianceType']=="NON_COMPLIANT":
-                send_results_to_sns(ResultIdentifiers, invoking_event['awsAccountId'], timestamp_now)
+                #if RuleCriticity is in the name
+                if ConfigRules["ConfigRuleName"].split("-")[0] in ["1_CRITICAL", "2_HIGH", "3_MEDIUM", "4_LOW"]:
+                    json_result["RuleCriticity"] = ConfigRules["ConfigRuleName"].split("-")[0]
+                        
+                response = kinesis_client.put_record(
+                    DeliveryStreamName='Firehose-Compliance-as-code',
+                    Record={
+                        'Data': str(json.dumps(json_result) + "\n")
+                    }
+                )
+                
+                # print(SNS_TOPIC_ARN)
+                # print(ResultIdentifiers['ComplianceType'])
+                
+                if SNS_TOPIC_ARN != "" and ResultIdentifiers['ComplianceType']=="NON_COMPLIANT":
+                    send_results_to_sns(ResultIdentifiers, invoking_event['awsAccountId'], timestamp_now)
+      
+            if "NextToken" in rule_compliance_details:
+                next_token = rule_compliance_details['NextToken']
+                rule_compliance_details = config.get_compliance_details_by_config_rule(ConfigRuleName=ConfigRules["ConfigRuleName"],Limit=100, NextToken=next_token)
+            else:
+                break
+                    
         
     if CFN_APP_RULESET_STACK_NAME == "" or CFN_APP_RULESET_S3_BUCKET == "" or CFN_APP_RULESET_TEMPLATE_NAME == "":
         config.put_evaluations(
