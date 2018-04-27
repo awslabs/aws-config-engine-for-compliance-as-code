@@ -61,14 +61,20 @@ def datetime_handler(x):
     if isinstance(x, datetime):
         return x.isoformat()
     raise TypeError("Unknown type")
-
+    
 def validate_if_latest_cfn():
     
     cfn_client = STS_SESSION.client('cloudformation')
 
     s3_client = boto3.client("s3")
     object = s3_client.get_object(Bucket=CFN_APP_RULESET_S3_BUCKET,Key=CFN_APP_RULESET_TEMPLATE_NAME)
-    template = object["Body"].read().decode("utf-8")
+    expected_template = object["Body"].read().decode("utf-8")
+    
+            
+    running_template = cfn_client.get_template(StackName=CFN_APP_RULESET_STACK_NAME)['TemplateBody']
+    
+    ex_template = ''.join([line.rstrip()+'\n' for line in expected_template.splitlines()])
+    run_template = ''.join([line.rstrip()+'\n' for line in running_template.splitlines()])
     
     parameter_list = []
     
@@ -78,48 +84,17 @@ def validate_if_latest_cfn():
                 'ParameterKey': param['ParameterKey'],
                 'UsePreviousValue': True
             })
-    
-    # Delete old change_set, if necessary
-    try:
-        print("Verify if existing ChangeSet")
-        cfn_client.describe_change_set(ChangeSetName='ComplianceValidation', StackName=CFN_APP_RULESET_STACK_NAME)
-        print("Existing ChangeSet, time to delete")
-        cfn_client.delete_change_set(ChangeSetName='ComplianceValidation', StackName=CFN_APP_RULESET_STACK_NAME)
-        print("Waiting time")
-        time.sleep(5)
-    except:
-        print("No ChangeSet")
 
-    # Create new change_set
-    response_create_change = cfn_client.create_change_set(
-        StackName=CFN_APP_RULESET_STACK_NAME,
-        TemplateBody = template,
-        ChangeSetName='ComplianceValidation',
-        Capabilities=['CAPABILITY_NAMED_IAM'],
-        Parameters=parameter_list
-        )
-    
-    result = {}
-    
-    while cfn_client.describe_change_set(ChangeSetName=response_create_change["Id"])["Status"] != "CREATE_COMPLETE":
-        if cfn_client.describe_change_set(ChangeSetName=response_create_change["Id"])["Status"] == "FAILED":
-            result = {
+    if ex_template == run_template:
+        return {
                 "Annotation" : "This account runs the latest Compliance-as-code stack.",
                 "ComplianceType" : "COMPLIANT"
             }
-            return result
-        time.sleep(3)
-
-    print("Change set" + str(cfn_client.describe_change_set(ChangeSetName=response_create_change["Id"])))
-    
-    result = {
+    else:
+        return {
             "Annotation" : "This account is not running the latest Compliance-as-code stack. Contact the Security team.",
             "ComplianceType" : "NON_COMPLIANT"
-        }
-    
-    cfn_client.delete_change_set(ChangeSetName=response_create_change["Id"])
-    
-    return result
+            }
     
 def lambda_handler(event, context):
         
@@ -207,7 +182,7 @@ def lambda_handler(event, context):
                     {
                         "ComplianceResourceType": "AWS::::Account",
                         "Annotation": "All the parameters (CFN_APP_RULESET_STACK_NAME, CFN_APP_RULESET_S3_BUCKET, CFN_APP_RULESET_TEMPLATE_NAME) must be set in the code of the Rule named Compliance_Validation. Contact the Security team.",
-                        "ComplianceResourceId": "Compliance-as-code CloudFormation",
+                        "ComplianceResourceId": event['configRuleArn'].split(":")[4],
                         "ComplianceType": "NON_COMPLIANT",
                         "OrderingTimestamp": timestamp_result_recorded_time
                     },
@@ -219,9 +194,9 @@ def lambda_handler(event, context):
         config.put_evaluations(
                 Evaluations=[
                     {
-                        "ComplianceResourceType": "AWS::CloudFormation::Stack",
+                        "ComplianceResourceType": "AWS::::Account",
                         "Annotation": latest_cfn["Annotation"],
-                        "ComplianceResourceId": CFN_APP_RULESET_TEMPLATE_NAME,
+                        "ComplianceResourceId": event['configRuleArn'].split(":")[4],
                         "ComplianceType": latest_cfn["ComplianceType"],
                         "OrderingTimestamp": timestamp_result_recorded_time
                     },
