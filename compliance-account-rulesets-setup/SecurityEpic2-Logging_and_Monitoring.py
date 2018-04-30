@@ -110,7 +110,8 @@ def LM_2_1_cloudtrail_centralized_encrypted_lfi(event, rule_parameters):
             correct_trail_status = cloudtrail_client.get_trail_status(Name=AWS_CLOUDTRAIL_NAME)
             correct_trail = cloudtrail_client.describe_trails(trailNameList=[AWS_CLOUDTRAIL_NAME])['trailList'][0]
             correct_trail_selector = cloudtrail_client.get_event_selectors(TrailName=AWS_CLOUDTRAIL_NAME)['EventSelectors'][0]
-           
+            print(correct_trail_selector)
+            
             if correct_trail_status['IsLogging'] != True:
                 response= {
                 "ComplianceType": "NON_COMPLIANT",
@@ -139,12 +140,12 @@ def LM_2_1_cloudtrail_centralized_encrypted_lfi(event, rule_parameters):
             elif correct_trail_selector['ReadWriteType'] != 'All' or correct_trail_selector['IncludeManagementEvents'] != True:
                 response= {
                 "ComplianceType": "NON_COMPLIANT",
-                "Annotation": "The Trail named "+ AWS_CLOUDTRAIL_NAME +" do not log ALL Management events."
+                "Annotation": "The Trail named "+ AWS_CLOUDTRAIL_NAME +" does not log ALL Management events."
                 }
-            elif str(correct_trail_selector['DataResources'][0]) != "{'Type': 'AWS::S3::Object', 'Values': ['arn:aws:s3']}":
+            elif len(correct_trail_selector['DataResources'])==0 or str(correct_trail_selector['DataResources'][0]) != "{'Type': 'AWS::S3::Object', 'Values': ['arn:aws:s3']}":
                 response= {
                 "ComplianceType": "NON_COMPLIANT",
-                "Annotation": "The Trail named "+ AWS_CLOUDTRAIL_NAME +" do not log ALL S3 Data Events."
+                "Annotation": "The Trail named "+ AWS_CLOUDTRAIL_NAME +" does not log ALL S3 Data Events."
                 }
             elif AWS_CLOUDTRAIL_S3_BUCKET_NAME == "":
                 response= {
