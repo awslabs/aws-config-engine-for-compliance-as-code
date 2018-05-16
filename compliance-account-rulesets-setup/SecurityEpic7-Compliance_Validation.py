@@ -15,7 +15,8 @@
 
 import json
 from datetime import datetime
-import traceback, sys
+import traceback
+import sys
 import boto3
 
 S3_CLIENT = boto3.client("s3")
@@ -106,12 +107,14 @@ def is_compliance_result_whitelisted(result):
     object_wl = S3_CLIENT.get_object(Bucket=WHITELIST_S3_BUCKET, Key=WHITELIST_S3_KEY)
     whitelist_json = json.loads(object_wl["Body"].read().decode("utf-8"))
 
-    for whitelist_item in whitelist_json["WhitelistItems"]:
-        if whitelist_item["RuleARN"] == result["RuleARN"] \
-            and whitelist_item["ResourceId"] == result["ResourceId"] \
-            and whitelist_item["ApprovalTicket"]:
-            print(whitelist_item["ResourceId"] + " whitelisted for " + whitelist_item["RuleARN"] + ".")
-            return True
+    for whitelist_item in whitelist_json["Whitelist"]:
+        if whitelist_item["RuleARN"] == result["RuleARN"]:
+            for whitelisted_resources in whitelist_item["WhitelistedResources"]:
+                if result["ResourceId"] in whitelisted_resources["ResourceIds"] \
+                and whitelisted_resources["ApprovalTicket"] \
+                and datetime.today().date() <= datetime.strptime(whitelisted_resources["ValidUntil"], '%Y-%m-%d').date():
+                    print(result["ResourceId"] + " whitelisted for " + result["RuleARN"] + ".")
+                    return True
     return False
 
 def lambda_handler(event, context):
@@ -164,7 +167,7 @@ def lambda_handler(event, context):
                     else:
                         json_result["ComplianceType"] = ResultIdentifiers['ComplianceType']
                         json_result["WhitelistedComplianceType"] = "False"
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
                     json_result["ComplianceType"] = ResultIdentifiers['ComplianceType']
                     json_result["WhitelistedComplianceType"] = "Error"
