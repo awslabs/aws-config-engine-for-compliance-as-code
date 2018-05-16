@@ -1,15 +1,37 @@
 {
-    "WhitelistItems": [
+    "Whitelist": [
         {
-            "ResourceId": "resource-id-1",
             "RuleARN": "arn:aws:config:us-east-1:123456789012:config-rule/config-rule-8fngan",
-            "ApprovalTicket": "link-to-ticket-system"
+            "WhitelistedResources" : [
+                {
+                    "ResourceIds": [
+                        "resource-id-11",
+                        "resource-id-12"
+                        ],
+                    "ApprovalTicket": "link-to-ticket-system",
+                    "ValidUntil": "2018-10-05"
+                }
+            ]
         },
         {
-            "ResourceId": "resource-id-2",
-            "RuleARN": "arn:aws:config:ap-southeast-1:11223344556677:config-rule/config-rule-8fngan",
-            "ApprovalTicket": "link-2-to-ticket-system"
+            "RuleARN": "arn:aws:config:ap-southeast-1:112233445566:config-rule/config-rule-123456",
+            "WhitelistedResources" : [
+                {
+                    "ResourceIds": [
+                        "resource-id-21"
+                        ],
+                    "ApprovalTicket": "link2-to-ticket-system",
+                    "ValidUntil": "9999-12-12"
+                },
+                {
+                    "ResourceIds": [
+                        "resource-id-31"
+                        ],
+                    "ApprovalTicket": "link3-to-ticket-system",
+                    "ValidUntil": "2018-10-05"
+                }
+            ]
         }
     ],
-    "ProcessToWhitelist": "url-to-confluence"
+    "ProcessToWhitelist": "url-to-process-webpage"
 }
