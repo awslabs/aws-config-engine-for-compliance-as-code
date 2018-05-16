@@ -1,0 +1,15 @@
+{
+    "WhitelistItems": [
+        {
+            "ResourceId": "resource-id-1",
+            "RuleARN": "arn:aws:config:us-east-1:123456789012:config-rule/config-rule-8fngan",
+            "ApprovalTicket": "link-to-ticket-system"
+        },
+        {
+            "ResourceId": "resource-id-2",
+            "RuleARN": "arn:aws:config:ap-southeast-1:11223344556677:config-rule/config-rule-8fngan",
+            "ApprovalTicket": "link-2-to-ticket-system"
+        }
+    ],
+    "ProcessToWhitelist": "url-to-confluence"
+}

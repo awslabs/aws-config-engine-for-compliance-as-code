@@ -7,17 +7,19 @@
 #
 # http://www.apache.org/licenses/LICENSE-2.0
 #
-# or in the "license" file accompanying this file. This file is distributed 
-# on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either 
-# express or implied. See the License for the specific language governing 
+# or in the "license" file accompanying this file. This file is distributed
+# on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 #
 
-import boto3
 import json
-import time
 from datetime import datetime
-import os
+import traceback, sys
+import boto3
+
+S3_CLIENT = boto3.client("s3")
+STS_SESSION = None
 
 # DEFINE SNS TOPIC
 SNS_TOPIC_ARN = ''
@@ -28,20 +30,24 @@ CFN_APP_RULESET_STACK_NAME = ''
 CFN_APP_RULESET_S3_BUCKET = ''
 CFN_APP_RULESET_TEMPLATE_NAME = ''
 
+# DEFINE WHITELIST LOCATION
+# This parameters allows you to overwrite a compliance status before it got pushed into the Compliance Data Lake, via Firehose.
+WHITELIST_S3_BUCKET = ''
+WHITELIST_S3_KEY = 'compliance-whitelist.json'
 
 def get_sts_session(event, rolename):
     global STS_SESSION
-    sts = boto3.client("sts")
-    response = sts.assume_role(
+    sts_local_client = boto3.client("sts")
+    response = sts_local_client.assume_role(
         RoleArn=str("arn:aws:iam::" + event['configRuleArn'].split(":")[4] + ":role/" + rolename),
         RoleSessionName='ComplianceAudit',
         DurationSeconds=900)
     STS_SESSION = boto3.Session(
-        aws_access_key_id=response['Credentials']['AccessKeyId'], 
-        aws_secret_access_key=response['Credentials']['SecretAccessKey'], 
-        aws_session_token=response['Credentials']['SessionToken'], 
-        region_name=event['configRuleArn'].split(":")[3], 
-        botocore_session=None, 
+        aws_access_key_id=response['Credentials']['AccessKeyId'],
+        aws_secret_access_key=response['Credentials']['SecretAccessKey'],
+        aws_session_token=response['Credentials']['SessionToken'],
+        region_name=event['configRuleArn'].split(":")[3],
+        botocore_session=None,
         profile_name=None)
 
 def send_results_to_sns(result_detail, accountID, timestamp):
@@ -61,23 +67,21 @@ def datetime_handler(x):
     if isinstance(x, datetime):
         return x.isoformat()
     raise TypeError("Unknown type")
-    
+
 def validate_if_latest_cfn():
-    
+
     cfn_client = STS_SESSION.client('cloudformation')
 
-    s3_client = boto3.client("s3")
-    object = s3_client.get_object(Bucket=CFN_APP_RULESET_S3_BUCKET,Key=CFN_APP_RULESET_TEMPLATE_NAME)
-    expected_template = object["Body"].read().decode("utf-8")
-    
-            
+    object_cfn = S3_CLIENT.get_object(Bucket=CFN_APP_RULESET_S3_BUCKET, Key=CFN_APP_RULESET_TEMPLATE_NAME)
+    expected_template = object_cfn["Body"].read().decode("utf-8")
+
     running_template = cfn_client.get_template(StackName=CFN_APP_RULESET_STACK_NAME)['TemplateBody']
-    
+
     ex_template = ''.join([line.rstrip()+'\n' for line in expected_template.splitlines()])
     run_template = ''.join([line.rstrip()+'\n' for line in running_template.splitlines()])
-    
+
     parameter_list = []
-    
+
     for param in cfn_client.describe_stacks(StackName=CFN_APP_RULESET_STACK_NAME)['Stacks'][0]['Parameters']:
         parameter_list.append(
             {
@@ -87,17 +91,31 @@ def validate_if_latest_cfn():
 
     if ex_template == run_template:
         return {
-                "Annotation" : "This account runs the latest Compliance-as-code stack.",
-                "ComplianceType" : "COMPLIANT"
+            "Annotation" : "This account runs the latest Compliance-as-code stack.",
+            "ComplianceType" : "COMPLIANT"
             }
-    else:
-        return {
-            "Annotation" : "This account is not running the latest Compliance-as-code stack. Contact the Security team.",
-            "ComplianceType" : "NON_COMPLIANT"
-            }
-    
+    return {
+        "Annotation" : "This account is not running the latest Compliance-as-code stack. Contact the Security team.",
+        "ComplianceType" : "NON_COMPLIANT"
+        }
+
+def is_compliance_result_whitelisted(result):
+    if not WHITELIST_S3_BUCKET or not WHITELIST_S3_KEY:
+        return False
+
+    object_wl = S3_CLIENT.get_object(Bucket=WHITELIST_S3_BUCKET, Key=WHITELIST_S3_KEY)
+    whitelist_json = json.loads(object_wl["Body"].read().decode("utf-8"))
+
+    for whitelist_item in whitelist_json["WhitelistItems"]:
+        if whitelist_item["RuleARN"] == result["RuleARN"] \
+            and whitelist_item["ResourceId"] == result["ResourceId"] \
+            and whitelist_item["ApprovalTicket"]:
+            print(whitelist_item["ResourceId"] + " whitelisted for " + whitelist_item["RuleARN"] + ".")
+            return True
+    return False
+
 def lambda_handler(event, context):
-        
+
     invoking_event = json.loads(event['invokingEvent'])
     rule_parameters = json.loads(event["ruleParameters"])
 
@@ -110,33 +128,24 @@ def lambda_handler(event, context):
         result_token = event["resultToken"]
 
     config = STS_SESSION.client('config')
-    dynamodb = boto3.client('dynamodb')
-    
+
     config_all_rules = config.describe_config_rules()
     # print(config_all_rules)
 
     for ConfigRules in config_all_rules["ConfigRules"]:
 
-        rule_compliance_details = config.get_compliance_details_by_config_rule(ConfigRuleName=ConfigRules["ConfigRuleName"],Limit=100)
+        rule_compliance_details = config.get_compliance_details_by_config_rule(ConfigRuleName=ConfigRules["ConfigRuleName"], Limit=100)
 
         # Skip this rule in the result
-        if ConfigRules["ConfigRuleId"]==event['configRuleId']:
-            continue        
-        
-        timestamp_lambda_exec = invoking_event['notificationCreationTime']   
-        try:
-            timestamp_result_recorded_time = rule_compliance_details['EvaluationResults'][0]['ResultRecordedTime']
-        except:
+        if ConfigRules["ConfigRuleId"] == event['configRuleId']:
             continue
-        
+
         kinesis_client = boto3.client("firehose")
-        
+
         while True:
             for ResultIdentifiers in rule_compliance_details['EvaluationResults']:
                 timestamp_now = str(datetime.now())+"+00:00"
-                # print("Now = "+timestamp_now)
-                # print("ResourceId: "+ ResultIdentifiers['EvaluationResultIdentifier']['EvaluationResultQualifier']['ResourceId'])
-                
+
                 # Record in Kinesis Firehose
                 json_result = {
                     "RuleARN": ConfigRules["ConfigRuleArn"],
@@ -144,62 +153,69 @@ def lambda_handler(event, context):
                     "RuleName": ConfigRules["ConfigRuleName"],
                     "ResourceType": ResultIdentifiers['EvaluationResultIdentifier']['EvaluationResultQualifier']['ResourceType'],
                     "ResourceId": ResultIdentifiers['EvaluationResultIdentifier']['EvaluationResultQualifier']['ResourceId'],
-                    "ComplianceType": ResultIdentifiers['ComplianceType'],
                     "LastResultRecordedTime": str(ResultIdentifiers['ResultRecordedTime']).split(".")[0].split("+")[0],
                     "AccountID": invoking_event['awsAccountId']
                     }
-        
-                if 'AccountClassification' in rule_parameters: 
+
+                try:
+                    if is_compliance_result_whitelisted(json_result):
+                        json_result["ComplianceType"] = "COMPLIANT"
+                        json_result["WhitelistedComplianceType"] = "True"
+                    else:
+                        json_result["ComplianceType"] = ResultIdentifiers['ComplianceType']
+                        json_result["WhitelistedComplianceType"] = "False"
+                except Exception as e:
+                    traceback.print_exc(file=sys.stdout)
+                    json_result["ComplianceType"] = ResultIdentifiers['ComplianceType']
+                    json_result["WhitelistedComplianceType"] = "Error"
+
+                if 'AccountClassification' in rule_parameters:
                     json_result["AccountClassification"] = rule_parameters["AccountClassification"]
-                    
+
                 #if RuleCriticity is in the name
                 if ConfigRules["ConfigRuleName"].split("-")[0] in ["1_CRITICAL", "2_HIGH", "3_MEDIUM", "4_LOW"]:
                     json_result["RuleCriticity"] = ConfigRules["ConfigRuleName"].split("-")[0]
-                        
-                response = kinesis_client.put_record(
+
+                kinesis_client.put_record(
                     DeliveryStreamName='Firehose-Compliance-as-code',
                     Record={
                         'Data': str(json.dumps(json_result) + "\n")
                     }
                 )
-                
-                # print(SNS_TOPIC_ARN)
-                # print(ResultIdentifiers['ComplianceType'])
-                
-                if SNS_TOPIC_ARN != "" and ResultIdentifiers['ComplianceType']=="NON_COMPLIANT":
+
+                if SNS_TOPIC_ARN != "" and ResultIdentifiers['ComplianceType'] == "NON_COMPLIANT":
                     send_results_to_sns(ResultIdentifiers, invoking_event['awsAccountId'], timestamp_now)
-      
+
             if "NextToken" in rule_compliance_details:
                 next_token = rule_compliance_details['NextToken']
-                rule_compliance_details = config.get_compliance_details_by_config_rule(ConfigRuleName=ConfigRules["ConfigRuleName"],Limit=100, NextToken=next_token)
+                rule_compliance_details = config.get_compliance_details_by_config_rule(ConfigRuleName=ConfigRules["ConfigRuleName"], Limit=100, NextToken=next_token)
             else:
                 break
-                    
-        
+
     if CFN_APP_RULESET_STACK_NAME == "" or CFN_APP_RULESET_S3_BUCKET == "" or CFN_APP_RULESET_TEMPLATE_NAME == "":
         config.put_evaluations(
-                Evaluations=[
-                    {
-                        "ComplianceResourceType": "AWS::::Account",
-                        "Annotation": "All the parameters (CFN_APP_RULESET_STACK_NAME, CFN_APP_RULESET_S3_BUCKET, CFN_APP_RULESET_TEMPLATE_NAME) must be set in the code of the Rule named Compliance_Validation. Contact the Security team.",
-                        "ComplianceResourceId": event['configRuleArn'].split(":")[4],
-                        "ComplianceType": "NON_COMPLIANT",
-                        "OrderingTimestamp": timestamp_result_recorded_time
-                    },
-                ],
-                ResultToken=result_token
-            )
+            Evaluations=[
+                {
+                    "ComplianceResourceType": "AWS::::Account",
+                    "Annotation": "All the parameters (CFN_APP_RULESET_STACK_NAME, CFN_APP_RULESET_S3_BUCKET, CFN_APP_RULESET_TEMPLATE_NAME) must be set in the code of the Rule named Compliance_Validation. Contact the Security team.",
+                    "ComplianceResourceId": event['configRuleArn'].split(":")[4],
+                    "ComplianceType": "NON_COMPLIANT",
+                    "OrderingTimestamp": invoking_event['notificationCreationTime']
+                },
+            ],
+            ResultToken=result_token
+        )
     else:
         latest_cfn = validate_if_latest_cfn()
         config.put_evaluations(
-                Evaluations=[
-                    {
-                        "ComplianceResourceType": "AWS::::Account",
-                        "Annotation": latest_cfn["Annotation"],
-                        "ComplianceResourceId": event['configRuleArn'].split(":")[4],
-                        "ComplianceType": latest_cfn["ComplianceType"],
-                        "OrderingTimestamp": timestamp_result_recorded_time
-                    },
-                ],
-                ResultToken=result_token
+            Evaluations=[
+                {
+                    "ComplianceResourceType": "AWS::::Account",
+                    "Annotation": latest_cfn["Annotation"],
+                    "ComplianceResourceId": event['configRuleArn'].split(":")[4],
+                    "ComplianceType": latest_cfn["ComplianceType"],
+                    "OrderingTimestamp": invoking_event['notificationCreationTime']
+                },
+            ],
+            ResultToken=result_token
             )

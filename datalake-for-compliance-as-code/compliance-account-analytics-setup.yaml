@@ -186,9 +186,9 @@ Resources:
       Name: "2-Table For ComplianceAsCode"
       QueryString: !Join 
         - ""
-        - - "CREATE EXTERNAL TABLE IF NOT EXISTS complianceascode.events (`rulearn` string COMMENT 'from deserializer',`recordedinddbtimestamp` string COMMENT 'from deserializer',`rulename` string COMMENT 'from deserializer',`resourcetype` string COMMENT 'from deserializer',`resourceid` string COMMENT 'from deserializer',`compliancetype` string COMMENT 'from deserializer',`lastresultrecordedtime` string COMMENT 'from deserializer',`accountid` string COMMENT 'from deserializer',`accountclassification` string COMMENT 'from deserializer',`rulecriticity` string COMMENT 'from deserializer') ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe' WITH SERDEPROPERTIES ('paths'='AccountClassification,AccountID,ComplianceType,LastResultRecordedTime,RecordedInDDBTimestamp,ResourceId,ResourceType,RuleARN,RuleCriticity,RuleName') STORED AS INPUTFORMAT 'org.apache.hadoop.mapred.TextInputFormat' OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' LOCATION 's3://"
+        - - "CREATE EXTERNAL TABLE IF NOT EXISTS complianceascode.events (`rulearn` string,`recordedinddbtimestamp` string,`rulename` string,`resourcetype` string,`resourceid` string,`compliancetype` string, `whitelistedcompliancetype` string,`lastresultrecordedtime` string,`accountid` string,`accountclassification` string,`rulecriticity` string) ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe' WITH SERDEPROPERTIES ('paths'='AccountClassification,AccountID,ComplianceType,WhitelistedComplianceType,LastResultRecordedTime,RecordedInDDBTimestamp,ResourceId,ResourceType,RuleARN,RuleCriticity,RuleName') STORED AS INPUTFORMAT 'org.apache.hadoop.mapred.TextInputFormat' OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' LOCATION 's3://"
           - !Join [ "-", [ !Ref CentralizedS3BucketComplianceEventName, !Ref 'AWS::AccountId']]
-          - "/compliance-events/' TBLPROPERTIES ('classification'='json', 'compressionType'='gzip', 'transient_lastDdlTime'='1521161215', 'typeOfData'='file')"
+          - "/compliance-as-code-events/' TBLPROPERTIES ('classification'='json', 'compressionType'='gzip', 'transient_lastDdlTime'='1521161215', 'typeOfData'='file')"
  
   AthenaNamedQueryConfigTable:
     Type: AWS::Athena::NamedQuery
