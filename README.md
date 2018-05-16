@@ -66,6 +66,18 @@ Note 1: Depending on your selection for the parameters, the template will deploy
 
 Note 2: You can add the Compliance Account as an Application account. The compliance Account then checks the compliance of itself.
 
+## Add a whitelisted resource from a particular Rule
+
+Certain resources may have a business need to not follow a particular rule. You can whitelist a resouce from being NON_COMPLIANT in the datalake, where you can query the compliance data. 
+
+To add a resource in the whitelist:
+1. Update the file compliance-account-rulesets-setup/compliance-whitelist.json (for model, there are dummy examples).
+2. Ensure that the location of the whitelist is correct in the code of the lambda function named SecurityEpic7-Compliance_Validation
+
+The resource will be then be noted as COMPLIANT, and the flag "WhitelistedComplianceType" will be set to "True" for traceability.
+
+Note: the resource will still be shown non-compliant in the AWS console of Config Rules. 
+
 ## Visualize all the data in the Compliance Account using the Compliance-as-code Datalake
 
 Refer to the "datalake-for-compliance-as-code" directory, to add further analytics.
