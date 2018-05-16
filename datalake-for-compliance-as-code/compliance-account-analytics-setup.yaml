@@ -63,7 +63,14 @@ Parameters:
     MaxLength: 63
     MinLength: 10
     Type: String
-    
+
+  FolderWhereFireHoseIsSending:
+    Description: Folder in the Centralized Bucket of Compliance event, where Firehose loads the data.
+    Default: compliance-as-code-events
+    MaxLength: 63
+    MinLength: 10
+    Type: String
+
   DataSampleLambdaName:
     Description: For demo purpose only - Name of the Lambda Function which is trigger daily to generate data samples for the Compliance Engine.
     Default: generate-compliance-events-data-samples
@@ -188,7 +195,9 @@ Resources:
         - ""
         - - "CREATE EXTERNAL TABLE IF NOT EXISTS complianceascode.events (`rulearn` string,`recordedinddbtimestamp` string,`rulename` string,`resourcetype` string,`resourceid` string,`compliancetype` string, `whitelistedcompliancetype` string,`lastresultrecordedtime` string,`accountid` string,`accountclassification` string,`rulecriticity` string) ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe' WITH SERDEPROPERTIES ('paths'='AccountClassification,AccountID,ComplianceType,WhitelistedComplianceType,LastResultRecordedTime,RecordedInDDBTimestamp,ResourceId,ResourceType,RuleARN,RuleCriticity,RuleName') STORED AS INPUTFORMAT 'org.apache.hadoop.mapred.TextInputFormat' OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' LOCATION 's3://"
           - !Join [ "-", [ !Ref CentralizedS3BucketComplianceEventName, !Ref 'AWS::AccountId']]
-          - "/compliance-as-code-events/' TBLPROPERTIES ('classification'='json', 'compressionType'='gzip', 'transient_lastDdlTime'='1521161215', 'typeOfData'='file')"
+          - "/"
+          - !Ref FolderWhereFireHoseIsSending
+          - "/' TBLPROPERTIES ('classification'='json', 'compressionType'='gzip', 'transient_lastDdlTime'='1521161215', 'typeOfData'='file')"
  
   AthenaNamedQueryConfigTable:
     Type: AWS::Athena::NamedQuery
