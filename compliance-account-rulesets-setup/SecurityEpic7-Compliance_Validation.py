@@ -41,20 +41,21 @@ WHITELIST_S3_KEY = 'compliance-whitelist.json'
 # This parameter is naming the Config Aggregator to be set up for all new accounts.
 CONFIG_AGGREG_NAME = 'Compliance-Automation-Aggregator'
 
-def get_sts_session(event, rolename):
-    global STS_SESSION
+def get_sts_session(event):
     sts_local_client = boto3.client("sts")
+    RoleArn = event["executionRoleArn"]
     response = sts_local_client.assume_role(
-        RoleArn=str("arn:aws:iam::" + event['configRuleArn'].split(":")[4] + ":role/" + rolename),
+        RoleArn=RoleArn,
         RoleSessionName='ComplianceAudit',
         DurationSeconds=900)
-    STS_SESSION = boto3.Session(
+    sts_session = boto3.Session(
         aws_access_key_id=response['Credentials']['AccessKeyId'],
         aws_secret_access_key=response['Credentials']['SecretAccessKey'],
         aws_session_token=response['Credentials']['SessionToken'],
         region_name=event['configRuleArn'].split(":")[3],
         botocore_session=None,
         profile_name=None)
+    return sts_session
 
 def send_results_to_sns(result_detail, accountID, timestamp):
     region = (SNS_TOPIC_ARN.split("sns:", 1)[1]).split(":", 1)[0]
@@ -149,10 +150,12 @@ def is_config_aggregator_set_up(account_id):
 def lambda_handler(event, context):
 
     invoking_event = json.loads(event['invokingEvent'])
-    rule_parameters = json.loads(event["ruleParameters"])
 
-    # Assume Role to get access to the application account information via sts session named STS_SESSION
-    get_sts_session(event, rule_parameters["RoleToAssume"])
+    rule_parameters={}
+    if 'ruleParameters' in event:
+        rule_parameters = json.loads(event['ruleParameters'])
+
+    STS_SESSION = get_sts_session(event)
 
     enable_config_aggregator(invoking_event['awsAccountId'])
 

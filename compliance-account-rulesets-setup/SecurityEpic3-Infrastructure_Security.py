@@ -26,11 +26,11 @@ import sys
 import time
 from datetime import datetime
 
-def IS_3_1_vpc_securitygroup_default_blocked(event, rule_parameters):
+def IS_3_1_vpc_securitygroup_default_blocked(event):
 
     regions = STS_SESSION.client("ec2").describe_regions()['Regions']
     for region in regions:
-        region_session = get_sts_session(event, rule_parameters["RoleToAssume"], region['RegionName'])
+        region_session = get_sts_session(event, region['RegionName'])
         ec2 = region_session.client("ec2")
         security_groups = ec2.describe_security_groups()
         for sg in security_groups['SecurityGroups']: # parsing all because filtering by GroupName returns a ClientError when there are no VPCs in the region
@@ -61,7 +61,7 @@ def IS_3_1_vpc_securitygroup_default_blocked(event, rule_parameters):
                 eval["OrderingTimestamp"]=json.loads(event["invokingEvent"])['notificationCreationTime']
                 put_eval(eval, result_token)
 
-def IS_3_2_vpc_main_route_table_no_igw(event, rule_parameters):
+def IS_3_2_vpc_main_route_table_no_igw(event):
     ec2_client = STS_SESSION.client("ec2")
     
     route_tables = ec2_client.describe_route_tables(Filters=[{"Name": "association.main", "Values" : ["true"]}])['RouteTables']
@@ -92,9 +92,9 @@ def IS_3_2_vpc_main_route_table_no_igw(event, rule_parameters):
         eval["OrderingTimestamp"]=json.loads(event["invokingEvent"])['notificationCreationTime']
         put_eval(eval, result_token)    
 
-def get_sts_session(event, rolename, region_name=False):
+def get_sts_session(event, region_name=False):
     sts = boto3.client("sts")
-    RoleArn=str("arn:aws:iam::" + event['configRuleArn'].split(":")[4] + ":role/" + rolename)
+    RoleArn = event["executionRoleArn"]
     if not region_name:
         region_name = event['configRuleArn'].split(":")[3]
     response = sts.assume_role(
@@ -145,23 +145,19 @@ def lambda_handler(event, context):
 
     rule_parameters={}
     if 'ruleParameters' in event:
-        if "RoleToAssume" not in event['ruleParameters']:
-            return "Error: Missing the parameter named RoleToAssume"
         rule_parameters = json.loads(event['ruleParameters'])
-    else:
-        return "Error: Missing the parameter named RoleToAssume"
-    
-    STS_SESSION = get_sts_session(event, rule_parameters['RoleToAssume'])
+
+    STS_SESSION = get_sts_session(event)
 
     # Initiate depending if the Rule has been deployed in Discrete mode or not.
     
     DiscreteModeRule = check_discrete_mode(event)
     
     if DiscreteModeRule == 1 or DiscreteModeRule == "All":
-        IS_3_1_vpc_securitygroup_default_blocked(event, rule_parameters)
+        IS_3_1_vpc_securitygroup_default_blocked(event)
         
     if DiscreteModeRule == 2 or DiscreteModeRule == "All":
-        IS_3_2_vpc_main_route_table_no_igw(event, rule_parameters)
+        IS_3_2_vpc_main_route_table_no_igw(event)
         
     
     

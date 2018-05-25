@@ -53,19 +53,17 @@ AMAZON_GUARDDUTY_ACCOUNT_ID = ''
 # Code #
 ########
 
-def LM_2_1_cloudtrail_centralized_encrypted_lfi(event, rule_parameters):
+def LM_2_1_cloudtrail_centralized_encrypted_lfi(event):
     # This rule verifies that a defined CloudTrail Trail send all logs to centralized S3 bucket.
     #
     # Scope
     # This rule covers one particular trail and is triggered periodically.
     #
     # Prerequisites 
-    # Configure the following parameters in the Config Rules configuration: 
-    # 1) RoleToAssume [present by default] 
     # Configure the following in the code of this lambda function
-    # 2) AWS_CLOUDTRAIL_NAME [Name of the Trail to look for]
-    # 3) AWS_CLOUDTRAIL_S3_BUCKET_NAME [Name of the S3 bucket, ideally in the centralized Security Logging Account]
-    # 4) AWS_CLOUDTRAIL_KMS_KEY_ARN [KMS CMK ARN used to encrypt CloudTrail, ideally in the centralized Security Logging Account]
+    # 1) AWS_CLOUDTRAIL_NAME [Name of the Trail to look for]
+    # 2) AWS_CLOUDTRAIL_S3_BUCKET_NAME [Name of the S3 bucket, ideally in the centralized Security Logging Account]
+    # 3) AWS_CLOUDTRAIL_KMS_KEY_ARN [KMS CMK ARN used to encrypt CloudTrail, ideally in the centralized Security Logging Account]
     #
     # Use cases
     # The following logic is applied: 
@@ -185,18 +183,16 @@ def LM_2_1_cloudtrail_centralized_encrypted_lfi(event, rule_parameters):
     eval["OrderingTimestamp"]=json.loads(event["invokingEvent"])['notificationCreationTime']
     put_eval(eval, result_token)  
 
-def LM_2_2_cloudwatch_event_bus_centralized(event, rule_parameters):
+def LM_2_2_cloudwatch_event_bus_centralized(event):
     # This rule verifies that a defined Event Rule sends all events to a centralized Security Monitoring AWS Account.
     #
     # Scope
     # This rule covers all regions in one account from a single region and is triggered periodically.
     #
     # Prerequisites 
-    # Configure the following parameters in the Config Rules configuration: 
-    # 1) RoleToAssume [present by default] 
     # Configure the following in the code of this lambda function
-    # 2) AMAZON_CLOUDWATCH_EVENT_RULE_NAME [Name of the Rule to look for]
-    # 3) AMAZON_CLOUDWATCH_EVENT_BUS_ACCOUNT_ID [Account ID of the centralized Security Monitoring Account, 12-digit]
+    # 1) AMAZON_CLOUDWATCH_EVENT_RULE_NAME [Name of the Rule to look for]
+    # 2) AMAZON_CLOUDWATCH_EVENT_BUS_ACCOUNT_ID [Account ID of the centralized Security Monitoring Account, 12-digit]
     #
     # Use cases
     # The following logic is applied for each region: 
@@ -213,7 +209,7 @@ def LM_2_2_cloudwatch_event_bus_centralized(event, rule_parameters):
         
     for region in regions:
         eval={}
-        region_session = get_sts_session(event, rule_parameters["RoleToAssume"], region['RegionName'])
+        region_session = get_sts_session(event, region['RegionName'])
         events_client = region_session.client("events")
         
         eval['Configuration'] = events_client.list_rules()['Rules']
@@ -276,19 +272,15 @@ def LM_2_2_cloudwatch_event_bus_centralized(event, rule_parameters):
         eval["OrderingTimestamp"]=json.loads(event["invokingEvent"])['notificationCreationTime']
         put_eval(eval, result_token)
     
-    
-
-def LM_2_3_config_enabled_centralized(event, rule_parameters):
+def LM_2_3_config_enabled_centralized(event):
     # This rule verifies that AWS Config is enabled and send the configuration snapshots in a central S3 bucket.
     #
     # Scope
     # This rule covers all regions in one account from a single region and is triggered periodically.
     #
     # Prerequisites 
-    # Configure the following parameters in the Config Rules configuration: 
-    # 1) RoleToAssume [present by default] 
     # Configure the following in the code of this lambda function
-    # 2) AWS_CONFIG_S3_BUCKET_NAME [Name of the centralized Bucket, not the ARN]
+    # 1) AWS_CONFIG_S3_BUCKET_NAME [Name of the centralized Bucket, not the ARN]
     #
     # Use cases
     # The following logic is applied for each region: 
@@ -306,7 +298,7 @@ def LM_2_3_config_enabled_centralized(event, rule_parameters):
         
     for region in regions:
         eval={}
-        region_session = get_sts_session(event, rule_parameters["RoleToAssume"], region['RegionName'])
+        region_session = get_sts_session(event, region['RegionName'])
         configservice = region_session.client("config")
         
         eval['Configuration'] = configservice.describe_delivery_channels()['DeliveryChannels']
@@ -360,17 +352,15 @@ def LM_2_3_config_enabled_centralized(event, rule_parameters):
         eval["OrderingTimestamp"]=json.loads(event["invokingEvent"])['notificationCreationTime']
         put_eval(eval, result_token)
 
-def LM_2_4_guardduty_enabled_centralized(event, rule_parameters):
+def LM_2_4_guardduty_enabled_centralized(event):
     # This rule verifies that Amazon GuardDuty and is centralized in a central AWS Account.
     #
     # Scope
     # This rule covers all regions in one account from a single region and is triggered periodically.
     #
     # Prerequisites 
-    # Configure the following parameters in the Config Rules configuration: 
-    # 1) RoleToAssume [present by default] 
     # Configure the following in the code of this lambda function
-    # 2) AMAZON_GUARDDUTY_ACCOUNT_ID [Account ID of the centralized Security Monitoring Account, 12-digit]
+    # 1) AMAZON_GUARDDUTY_ACCOUNT_ID [Account ID of the centralized Security Monitoring Account, 12-digit]
     #
     # Use cases
     # The following logic is applied for each region: 
@@ -384,14 +374,14 @@ def LM_2_4_guardduty_enabled_centralized(event, rule_parameters):
     # GuardDuty is enabled and centralized in AMAZON_GUARDDUTY_ACCOUNT_ID -> COMPLIANT
 
     regions = STS_SESSION.client("ec2").describe_regions()['Regions']
-    
-    if not re.match("^[0-9]{12}$",AMAZON_GUARDDUTY_ACCOUNT_ID):
-        put_eval(build_evaluation(event, "NON_COMPLIANT","The parameter \"AMAZON_GUARDDUTY_ACCOUNT_ID\" is not correct in the lambda code. Contact the Security team."))
-        return
-        
+
     for region in regions:
-        region_session = get_sts_session(event, rule_parameters["RoleToAssume"], region['RegionName'])
+        region_session = get_sts_session(event, region['RegionName'])
         guard_client = region_session.client("guardduty")
+
+        if not re.match("^[0-9]{12}$", AMAZON_GUARDDUTY_ACCOUNT_ID):
+            put_eval(build_evaluation(event, "NON_COMPLIANT",
+                                      "The parameter \"AMAZON_GUARDDUTY_ACCOUNT_ID\" is not correct in the lambda code. Contact the Security team.", region), result_token)
 
         try:
             detectorIds = []
@@ -472,9 +462,9 @@ def build_evaluation(event, complianceType, annotation, region, eval_resource_ty
         "OrderingTimestamp": str(json.loads(event["invokingEvent"])['notificationCreationTime'])
     }
 
-def get_sts_session(event, rolename, region_name=False):
+def get_sts_session(event, region_name=False):
     sts = boto3.client("sts")
-    RoleArn=str("arn:aws:iam::" + event['configRuleArn'].split(":")[4] + ":role/" + rolename)
+    RoleArn = event["executionRoleArn"]
     if not region_name:
         region_name = event['configRuleArn'].split(":")[3]
     response = sts.assume_role(
@@ -490,7 +480,7 @@ def get_sts_session(event, rolename, region_name=False):
         profile_name=None)
     return(sts_session)
 
-def put_eval(eval,token):
+def put_eval(eval, token):
     config = STS_SESSION.client("config")
     config.put_evaluations(
         Evaluations=[
@@ -525,27 +515,22 @@ def lambda_handler(event, context):
 
     rule_parameters={}
     if 'ruleParameters' in event:
-        if "RoleToAssume" not in event['ruleParameters']:
-            return "Error: Missing the parameter named RoleToAssume"
         rule_parameters = json.loads(event['ruleParameters'])
-    else:
-        return "Error: Missing the parameter named RoleToAssume"
-    
-    
-    STS_SESSION = get_sts_session(event, rule_parameters['RoleToAssume'])
 
+    STS_SESSION = get_sts_session(event)
+    
     # Initiate depending if the Rule has been deployed in Discrete mode or not.
     
     DiscreteModeRule = check_discrete_mode(event)
     
     if DiscreteModeRule == 1 or DiscreteModeRule == "All":
-        LM_2_1_cloudtrail_centralized_encrypted_lfi(event, rule_parameters)
+        LM_2_1_cloudtrail_centralized_encrypted_lfi(event)
         
     if DiscreteModeRule == 2 or DiscreteModeRule == "All":
-        LM_2_2_cloudwatch_event_bus_centralized(event, rule_parameters)
+        LM_2_2_cloudwatch_event_bus_centralized(event)
     
     if DiscreteModeRule == 3 or DiscreteModeRule == "All":  
-        LM_2_3_config_enabled_centralized(event, rule_parameters)
+        LM_2_3_config_enabled_centralized(event)
     
     if DiscreteModeRule == 4 or DiscreteModeRule == "All":  
-        LM_2_4_guardduty_enabled_centralized(event, rule_parameters)
+        LM_2_4_guardduty_enabled_centralized(event)
