@@ -158,7 +158,7 @@ Metadata:
         Parameters:
          - CentralizedS3BucketConfigFullName
          - ComplianceAccountId
-         - ComplianceAuditRoleName
+         - ConfigAndComplianceAuditRoleName
       - Label:
           default: RuleSet to deploy
         Parameters:
@@ -187,9 +187,9 @@ Parameters:
     MaxLength: 12
     MinLength: 12
     Type: String
-  ComplianceAuditRoleName:
+  ConfigAndComplianceAuditRoleName:
     Description: Role Name of the Compliance Account Cross Account Role
-    Default: ComplianceAuditRole-DO-NOT-DELETE
+    Default: AWSConfigAndComplianceAuditRole-DO-NOT-DELETE
     Type: String
 
 #
@@ -398,8 +398,6 @@ Resources:
     Properties:
       ConfigRuleName: 1_CRITICAL-Identity_and_Access_Management
       Description: "Checks controls related to Identity and Access Management. Read the code for more details."
-      InputParameters:
-        RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
         SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic1-Identity_and_Access_Management ] ]
@@ -418,8 +416,6 @@ Resources:
     Properties:
       ConfigRuleName: 1_CRITICAL-Logging_and_Monitoring
       Description: "Checks controls related to Logging and Monitoring. Read the code for more details."
-      InputParameters:
-        RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
         SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic2-Logging_and_Monitoring ] ]
@@ -438,8 +434,6 @@ Resources:
     Properties:
       ConfigRuleName: 2_HIGH-Infrastructure_Security
       Description: "Checks controls related to Infrastructure Security. Read the code for more details."
-      InputParameters:
-        RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
         SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic3-Infrastructure_Security ] ]
@@ -458,8 +452,6 @@ Resources:
     Properties:
       ConfigRuleName: 4_LOW-Data_Protection
       Description: "Checks controls related to Data Protection. Read the code for more details."
-      InputParameters:
-        RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
         SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic4-Data_Protection ] ]
@@ -593,8 +585,6 @@ Resources:
     Properties:
       ConfigRuleName: 1_CRITICAL-IAM_1_1-root_no_access
       Description: "Check that the root user did not access the account for the last 24 hours (configurable)."
-      InputParameters:
-        RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
         SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic1-Identity_and_Access_Management ] ]
@@ -613,8 +603,6 @@ Resources:
     Properties:
       ConfigRuleName: 1_CRITICAL-IAM_1_2-root_mfa_enabled
       Description: "Check whether the root account user has MFA enabled."
-      InputParameters:
-        RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
         SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic1-Identity_and_Access_Management ] ]
@@ -633,8 +621,6 @@ Resources:
     Properties:
       ConfigRuleName: 1_CRITICAL-IAM_1_3-root_no_access_key
       Description: "Check the root account user has no access key."
-      InputParameters:
-        RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
         SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic1-Identity_and_Access_Management ] ]
@@ -653,8 +639,6 @@ Resources:
     Properties:
       ConfigRuleName: 2_HIGH-IAM_1_4-iam_policy_no_full_star
       Description: Check whether an IAM user has an IAM policy with all permission enabled (or "Action:*"). It includes the AWS-managed policy named AdministratorAccess.
-      InputParameters:
-        RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
         SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic1-Identity_and_Access_Management ] ]
@@ -673,8 +657,6 @@ Resources:
     Properties:
       ConfigRuleName: 1_CRITICAL-LM_2_1-cloudtrail_centralized_encrypted_lfi
       Description: Check whether the Security CloudTrail is properly configured, including that it 1) is active, 2) includes all regions and global resources 3) is centralized in your Logging AWS account, 4) is encrypted and 5) that the delivery of the logs are successful.
-      InputParameters:
-        RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
         SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic2-Logging_and_Monitoring ] ]
@@ -693,8 +675,6 @@ Resources:
     Properties:
       ConfigRuleName: 2_HIGH-LM_2_2-cloudwatch_event_bus_centralized
       Description: Checks that an event bus is configured in all AWS Regions of this account to your Security Monitoring AWS Account, and that an active rule sends all events to the bus.
-      InputParameters:
-        RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
         SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic2-Logging_and_Monitoring ] ]
@@ -713,8 +693,6 @@ Resources:
     Properties:
       ConfigRuleName: 2_HIGH-LM_2_3-config_enabled_centralized
       Description: Check that AWS Config is configured in all AWS Regions of this account, enabled and that the configuration snapshots are sent in a centralized S3 bucket.
-      InputParameters:
-        RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
         SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic2-Logging_and_Monitoring ] ]
@@ -733,8 +711,6 @@ Resources:
     Properties:
       ConfigRuleName: 2_HIGH-LM_2_4-guardduty_enabled_centralized
       Description: Check that Amazon GuardDuty is configured in all AWS Regions of this account, and that it is centralized in your Security Monitoring Account.
-      InputParameters:
-        RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
         SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic2-Logging_and_Monitoring ] ]
@@ -753,8 +729,6 @@ Resources:
     Properties:
       ConfigRuleName: 3_MEDIUM-IS_3_1-vpc_securitygroup_default_blocked
       Description: Check that, in all AWS Regions in all VPC, the default security group is blocking all traffic.
-      InputParameters:
-        RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
         SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic3-Infrastructure_Security ] ]
@@ -773,8 +747,6 @@ Resources:
     Properties:
       ConfigRuleName: 2_HIGH-IS_3_2-vpc_main_route_table_no_igw
       Description: Check that, in all VPCs of this region, the main route table does not contain a default route to an Internet Gateway (IGW). The route must be in the subnet route table(s).
-      InputParameters:
-        RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
         SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic3-Infrastructure_Security ] ]
@@ -793,8 +765,6 @@ Resources:
     Properties:
       ConfigRuleName: 4_LOW-DP_4_1-kms_cmk_rotation_activated
       Description: Check, for all AWS Regions, that the automatic rotation is enabled for all Customer-managed Customer Master Key (CMK).
-      InputParameters:
-        RoleToAssume: !Ref ComplianceAuditRoleName
       Source:
         Owner: CUSTOM_LAMBDA
         SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic4-Data_Protection ] ]
@@ -819,9 +789,10 @@ Resources:
       RecordingGroup:
         AllSupported: 'True'
         IncludeGlobalResourceTypes: 'True'
-      RoleARN: !Join ["", ["arn:aws:iam::", !Ref 'AWS::AccountId', ":role/service-role/AWSConfigRole-DO-NOT-DELETE"]]
+      RoleARN: !Join ["", ["arn:aws:iam::", !Ref 'AWS::AccountId', ":role/service-role/", !Ref ConfigAndComplianceAuditRoleName]]
     DependsOn:
-    - AWSConfigRole
+    - AWSConfigAndComplianceRole
+    - ConfigS3WritePolicy
 
   DeliveryChannel:
     Type: AWS::Config::DeliveryChannel
@@ -829,6 +800,8 @@ Resources:
       ConfigSnapshotDeliveryProperties:
         DeliveryFrequency: TwentyFour_Hours
       S3BucketName: !Ref CentralizedS3BucketConfigFullName
+    DependsOn:
+    - ConfigS3WritePolicy
 
   AggregationAuthorization: 
     Type: "AWS::Config::AggregationAuthorization"
@@ -836,27 +809,35 @@ Resources:
       AuthorizedAccountId: !Ref ComplianceAccountId
       AuthorizedAwsRegion: !Ref 'AWS::Region'
 
-  AWSConfigRole:
+  AWSConfigAndComplianceRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
         Statement:
-        - Action:
+        - Effect: Allow
+          Action:
           - sts:AssumeRole
-          Effect: Allow
           Principal:
             Service: config.amazonaws.com
+        - Effect: Allow
+          Action:
+          - sts:AssumeRole
+          Principal:
+            AWS: !Ref ComplianceAccountId
         Version: '2012-10-17'
       ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/service-role/AWSConfigRole
+      - 'arn:aws:iam::aws:policy/service-role/AWSConfigRole'
+      - 'arn:aws:iam::aws:policy/SecurityAudit'
+      - 'arn:aws:iam::aws:policy/CloudWatchEventsReadOnlyAccess'
+      - 'arn:aws:iam::aws:policy/AWSCloudTrailReadOnlyAccess'
       Path: /service-role/
-      RoleName: AWSConfigRole-DO-NOT-DELETE
+      RoleName: !Ref ConfigAndComplianceAuditRoleName
 
   ConfigS3WritePolicy:
     Type: 'AWS::IAM::Policy'
     Properties:
       Roles:
-      - AWSConfigRole-DO-NOT-DELETE
+      - !Ref ConfigAndComplianceAuditRoleName
       PolicyName: !Join
         - '-'
         - - ConfigS3Write
@@ -872,42 +853,9 @@ Resources:
           Sid: !Join ["", ["ConfigS3Write", !Ref 'AWS::AccountId'] ]
         Version: 2012-10-17
     DependsOn:
-    - AWSConfigRole
+    - AWSConfigAndComplianceRole
 
-  CrossAcountAuditRole:
-    Type: "AWS::IAM::Role"
-    Properties:
-      RoleName: !Ref ComplianceAuditRoleName
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          -
-            Effect: "Allow"
-            Principal:
-              AWS: !Join ["", ["arn:aws:iam::", !Ref ComplianceAccountId, ":root"]]
-            Action:
-              - "sts:AssumeRole"
-      Path: "/"
-      ManagedPolicyArns:
-      - 'arn:aws:iam::aws:policy/SecurityAudit'
-      - 'arn:aws:iam::aws:policy/CloudWatchEventsReadOnlyAccess'
-      - 'arn:aws:iam::aws:policy/AWSCloudTrailReadOnlyAccess'
-
-  CrossAcountAuditRolePolicy:
-    Type: "AWS::IAM::Policy"
-    Properties:
-      PolicyDocument:
-        Statement:
-          - Action: 'config:PutEvaluations'
-            Effect: Allow
-            Resource: '*'
-        Version: 2012-10-17
-      PolicyName: PutEvaluationPolicy
-      Roles:
-       - !Ref ComplianceAuditRoleName
-    DependsOn: CrossAcountAuditRole
-
-  CrossAcountAuditRolePolicy2:
+  ConfigGuarddutyReadOnlyPolicy:
     Type: "AWS::IAM::Policy"
     Properties:
       PolicyDocument:
@@ -920,8 +868,8 @@ Resources:
         Version: 2012-10-17
       PolicyName: GuarddutyReadOnly
       Roles:
-       - !Ref ComplianceAuditRoleName
-    DependsOn: CrossAcountAuditRole
+       - !Ref ConfigAndComplianceAuditRoleName
+    DependsOn: AWSConfigAndComplianceRole
     
   RuleSetReporter:
     Type: AWS::Config::ConfigRule
@@ -929,7 +877,6 @@ Resources:
       ConfigRuleName: 2_HIGH-CV_7_1-compliance_ruleset_latest_installed
       Description: Check that the latest template for the RuleSet is installed in this account.
       InputParameters:
-        RoleToAssume: !Ref ComplianceAuditRoleName
         AccountClassification: !Ref AccountClassification
       Source:
         Owner: CUSTOM_LAMBDA

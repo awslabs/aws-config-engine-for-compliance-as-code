@@ -32,9 +32,9 @@ from datetime import datetime
 
 STS_SESSION = ''
 
-def get_sts_session(event, rolename, region_name=False):
+def get_sts_session(event, region_name=False):
     sts = boto3.client("sts")
-    RoleArn=str("arn:aws:iam::" + event['configRuleArn'].split(":")[4] + ":role/" + rolename)
+    RoleArn = event["executionRoleArn"]
     if not region_name:
         region_name = event['configRuleArn'].split(":")[3]
     response = sts.assume_role(
@@ -266,9 +266,10 @@ def check_discrete_mode(event):
         return mode
     except:
         return "All"
-    
+
 # This is the handler that's invoked by Lambda
 def lambda_handler(event, context):
+
     global STS_SESSION
     global result_token
     if "resultToken" in event:
@@ -276,13 +277,9 @@ def lambda_handler(event, context):
 
     rule_parameters={}
     if 'ruleParameters' in event:
-        if "RoleToAssume" not in event['ruleParameters']:
-            return "Error: Missing the parameter named RoleToAssume"
         rule_parameters = json.loads(event['ruleParameters'])
-    else:
-        return "Error: Missing the parameter named RoleToAssume"
-    
-    STS_SESSION = get_sts_session(event, rule_parameters["RoleToAssume"])
+
+    STS_SESSION = get_sts_session(event)
 
     # Initiate depending if the Rule has been deployed in Discrete mode or not.
     
