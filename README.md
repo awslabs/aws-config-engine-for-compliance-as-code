@@ -23,7 +23,7 @@ Deploy a compliance-as-code engine to provide insights on the compliance status 
 6. Deploy easily in dozens of accounts: by having a 1-step process for any new application account via AWS CloudFormation.
 7. Protect the code base: by centralizing the code base of all the compliance-as-code rules in a “compliance account”.
 8. Enable a cost-effective approach by limiting the number of individual AWS Config Rules, when required.
-9. Make use of the AWS Config Rules Dashboard to display the details of compliance status of your AWS resources. 
+9. Make use of the AWS Config Rules Dashboard to display the details of compliance status of your AWS resources by setting up Config Aggregator. 
 10. Notify on non-compliant resources by triggering an Amazon SNS topic.
 
 ## Demo
