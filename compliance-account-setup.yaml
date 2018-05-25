@@ -62,7 +62,7 @@ Resources:
         - LambdaRuleIAMRole
         - Arn
     DependsOn: LambdaRuleIAMRole
-  
+    
 # Firehose
 
   FirehoseDeliveryStreamIAMRole:
@@ -231,6 +231,23 @@ Resources:
       PolicyDocument:
         Statement:
           - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Resource: '*'
+        Version: 2012-10-17
+    DependsOn: 
+    - LambdaRuleIAMRole
+    
+  PutConfigAggregationPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      Roles:
+        - LambdaForComplianceRuleRole
+      PolicyName: PutConfigAggregationPolicy
+      PolicyDocument:
+        Statement:
+          - Action: 
+             - 'config:PutConfigurationAggregator'
+             - 'config:DescribeConfigurationAggregators'
             Effect: Allow
             Resource: '*'
         Version: 2012-10-17

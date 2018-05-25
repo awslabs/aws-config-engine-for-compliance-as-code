@@ -830,6 +830,12 @@ Resources:
         DeliveryFrequency: TwentyFour_Hours
       S3BucketName: !Ref CentralizedS3BucketConfigFullName
 
+  AggregationAuthorization: 
+    Type: "AWS::Config::AggregationAuthorization"
+    Properties: 
+      AuthorizedAccountId: !Ref ComplianceAccountId
+      AuthorizedAwsRegion: !Ref 'AWS::Region'
+
   AWSConfigRole:
     Type: AWS::IAM::Role
     Properties:

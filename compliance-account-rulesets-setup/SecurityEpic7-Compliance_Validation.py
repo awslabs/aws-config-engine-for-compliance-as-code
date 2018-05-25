@@ -19,7 +19,8 @@ import traceback
 import sys
 import boto3
 
-S3_CLIENT = boto3.client("s3")
+S3_CLIENT = boto3.client('s3')
+LOCAL_CONFIG_CLIENT = boto3.client('config')
 STS_SESSION = None
 
 # DEFINE SNS TOPIC
@@ -35,6 +36,10 @@ CFN_APP_RULESET_TEMPLATE_NAME = ''
 # This parameters allows you to overwrite a compliance status before it got pushed into the Compliance Data Lake, via Firehose.
 WHITELIST_S3_BUCKET = ''
 WHITELIST_S3_KEY = 'compliance-whitelist.json'
+
+# DEFINE NAME OF THE CONFIG AGGREGATOR
+# This parameter is naming the Config Aggregator to be set up for all new accounts.
+CONFIG_AGGREG_NAME = 'Compliance-Automation-Aggregator'
 
 def get_sts_session(event, rolename):
     global STS_SESSION
@@ -117,6 +122,30 @@ def is_compliance_result_whitelisted(result):
                     return True
     return False
 
+def enable_config_aggregator(account_id):
+    if not is_config_aggregator_set_up(account_id):
+        LOCAL_CONFIG_CLIENT.put_configuration_aggregator(
+            ConfigurationAggregatorName=CONFIG_AGGREG_NAME,
+            AccountAggregationSources=[
+                {
+                    'AccountIds': [account_id],
+                    'AllAwsRegions': True
+                }
+            ])
+
+def is_config_aggregator_set_up(account_id):
+    try:
+        aggreg_details = LOCAL_CONFIG_CLIENT.describe_configuration_aggregators(
+            ConfigurationAggregatorNames=[CONFIG_AGGREG_NAME])
+    except:
+        return False
+
+    for source in aggreg_details['ConfigurationAggregators'][0]['AccountAggregationSources']:
+        for account in source['AccountIds']:
+            if account == account_id and source['AllAwsRegions']:
+                return True
+    return False
+
 def lambda_handler(event, context):
 
     invoking_event = json.loads(event['invokingEvent'])
@@ -124,6 +153,8 @@ def lambda_handler(event, context):
 
     # Assume Role to get access to the application account information via sts session named STS_SESSION
     get_sts_session(event, rule_parameters["RoleToAssume"])
+
+    enable_config_aggregator(invoking_event['awsAccountId'])
 
     result_token = "No token found."
 
