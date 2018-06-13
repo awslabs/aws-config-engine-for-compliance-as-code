@@ -30,64 +30,119 @@ Resources:
 
 #
 # BEGINNING OF THE RESOURCES SECTION TO BE ADAPTED TO YOUR NEEDS
-# Modify your rule set here (sample below). Each new Custom Config rule of the ruleSet needs 1) Lambda Function and 2) Lambda Permission       
+# Modify your rule set here (sample below). Each new Custom Config rule of the ruleSet needs 1) Lambda Function and 2) Lambda Permission. The CFn Stack includes the necessary.
 # For managed rules, the configuration is to be done in application-account-setup.yaml
 #
 
-  CreateIAMRuleStack:
+  CreateCLOUDTRAILCERuleStack:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: !Join ['/', ['https://s3.amazonaws.com', !Ref SourceLambdaBucket, 'compliance-account-rule-lambda-setup.yaml']]
       Parameters:
-        RuleSetName: SecurityEpic1-Identity_and_Access_Management                      
+        RuleSetName: CLOUDTRAIL_CENTRALIZED_ENCRYPTED_LFI
         SourceLambdaBucket: !Ref SourceLambdaBucket
         LambdaRuleRoleARN: !Ref LambdaRuleIAMRoleARN
 
-  CreateLMRuleStack:
+  CreateCLOUDWATCHEVRuleStack:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: !Join ['/', ['https://s3.amazonaws.com', !Ref SourceLambdaBucket, 'compliance-account-rule-lambda-setup.yaml']]
       Parameters:
-        RuleSetName: SecurityEpic2-Logging_and_Monitoring             
+        RuleSetName: CLOUDWATCH_EVENT_BUS_CENTRALIZED
         SourceLambdaBucket: !Ref SourceLambdaBucket
         LambdaRuleRoleARN: !Ref LambdaRuleIAMRoleARN
 
-  CreateISRuleStack:
+  CreateCONFIGENABLERuleStack:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: !Join ['/', ['https://s3.amazonaws.com', !Ref SourceLambdaBucket, 'compliance-account-rule-lambda-setup.yaml']]
       Parameters:
-        RuleSetName: SecurityEpic3-Infrastructure_Security     
+        RuleSetName: CONFIG_ENABLED_CENTRALIZED
         SourceLambdaBucket: !Ref SourceLambdaBucket
         LambdaRuleRoleARN: !Ref LambdaRuleIAMRoleARN
 
-  CreateDPRuleStack:
+  CreateGUARDDUTYENARuleStack:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: !Join ['/', ['https://s3.amazonaws.com', !Ref SourceLambdaBucket, 'compliance-account-rule-lambda-setup.yaml']]
       Parameters:
-        RuleSetName: SecurityEpic4-Data_Protection
+        RuleSetName: GUARDDUTY_ENABLED_CENTRALIZED
         SourceLambdaBucket: !Ref SourceLambdaBucket
         LambdaRuleRoleARN: !Ref LambdaRuleIAMRoleARN
-        
-  # CreateRRuleStack:
-    # Type: AWS::CloudFormation::Stack
-    # Properties:
-      # TemplateURL: !Join ['/', ['https://s3.amazonaws.com', !Ref SourceLambdaBucket, 'compliance-account-rule-lambda-setup.yaml']]
-      # Parameters:
-        # RuleSetName: SecurityEpic6-Resilience              
-        # SourceLambdaBucket: !Ref SourceLambdaBucket
-        # LambdaRuleRoleARN: !Ref LambdaRuleIAMRoleARN
+
+  CreateIAMPOLICYNOFRuleStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Join ['/', ['https://s3.amazonaws.com', !Ref SourceLambdaBucket, 'compliance-account-rule-lambda-setup.yaml']]
+      Parameters:
+        RuleSetName: IAM_POLICY_NO_FULL_STAR
+        SourceLambdaBucket: !Ref SourceLambdaBucket
+        LambdaRuleRoleARN: !Ref LambdaRuleIAMRoleARN
+
+  CreateKMSCMKROTATIRuleStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Join ['/', ['https://s3.amazonaws.com', !Ref SourceLambdaBucket, 'compliance-account-rule-lambda-setup.yaml']]
+      Parameters:
+        RuleSetName: KMS_CMK_ROTATION_ENABLED
+        SourceLambdaBucket: !Ref SourceLambdaBucket
+        LambdaRuleRoleARN: !Ref LambdaRuleIAMRoleARN
+
+  CreateROOTMFAENABLRuleStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Join ['/', ['https://s3.amazonaws.com', !Ref SourceLambdaBucket, 'compliance-account-rule-lambda-setup.yaml']]
+      Parameters:
+        RuleSetName: ROOT_MFA_ENABLED
+        SourceLambdaBucket: !Ref SourceLambdaBucket
+        LambdaRuleRoleARN: !Ref LambdaRuleIAMRoleARN
+
+  CreateROOTNOACCESSRuleStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Join ['/', ['https://s3.amazonaws.com', !Ref SourceLambdaBucket, 'compliance-account-rule-lambda-setup.yaml']]
+      Parameters:
+        RuleSetName: ROOT_NO_ACCESS_KEY
+        SourceLambdaBucket: !Ref SourceLambdaBucket
+        LambdaRuleRoleARN: !Ref LambdaRuleIAMRoleARN
+
+  CreateROOTNOLASTACRuleStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Join ['/', ['https://s3.amazonaws.com', !Ref SourceLambdaBucket, 'compliance-account-rule-lambda-setup.yaml']]
+      Parameters:
+        RuleSetName: ROOT_NO_LAST_ACCESS
+        SourceLambdaBucket: !Ref SourceLambdaBucket
+        LambdaRuleRoleARN: !Ref LambdaRuleIAMRoleARN
+
+  CreateVPCMAINROUTERuleStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Join ['/', ['https://s3.amazonaws.com', !Ref SourceLambdaBucket, 'compliance-account-rule-lambda-setup.yaml']]
+      Parameters:
+        RuleSetName: VPC_MAIN_ROUTE_TABLE_NO_IGW
+        SourceLambdaBucket: !Ref SourceLambdaBucket
+        LambdaRuleRoleARN: !Ref LambdaRuleIAMRoleARN
+
+  CreateVPCSECURITYGRuleStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Join ['/', ['https://s3.amazonaws.com', !Ref SourceLambdaBucket, 'compliance-account-rule-lambda-setup.yaml']]
+      Parameters:
+        RuleSetName: VPC_SECURITY_GROUP_DEFAULT_BLOCKED
+        SourceLambdaBucket: !Ref SourceLambdaBucket
+        LambdaRuleRoleARN: !Ref LambdaRuleIAMRoleARN
+
 
 #
 # END OF THE RESOURCES SECTION TO BE ADAPTED
 #
 
-  CreateRuleSetReporterStack:
+  CreateCOMPLIANCERURuleStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !Ref SourceLambdaBucket, "compliance-account-rule-lambda-setup.yaml"]]
+      TemplateURL: !Join ['/', ['https://s3.amazonaws.com', !Ref SourceLambdaBucket, 'compliance-account-rule-lambda-setup.yaml']]
       Parameters:
-        RuleSetName: SecurityEpic7-Compliance_Validation
+        RuleSetName: COMPLIANCE_RULESET_LATEST_INSTALLED
         SourceLambdaBucket: !Ref SourceLambdaBucket
         LambdaRuleRoleARN: !Ref LambdaRuleIAMRoleARN
