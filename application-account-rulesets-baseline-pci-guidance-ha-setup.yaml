@@ -70,7 +70,7 @@
 # | Id  | Rule Name                            | by Account       | for PCI  | for               |
 # |     |                                      | Classification   | guidance | High Availability |
 # | --- | ------------------------------------ | ---------------- | -------- | ----------------- |
-# | 1.1 | root_no_access                       | All              |          |                   |
+# | 1.1 | root_no_last_access                  | All              |          |                   |
 # | 1.2 | root_mfa_enabled                     | All              | Yes      |                   |
 # | 1.3 | root_no_access_key                   | All              |          |                   |
 # | 1.4 | iam_policy_no_full_star              | All              | Yes      |                   |
@@ -78,10 +78,10 @@
 # | 2.2 | cloudwatch_event_bus_centralized     | All              |          |                   |
 # | 2.3 | config_enabled_centralized           | All              | Yes      |                   |
 # | 2.4 | guardduty_enabled_centralized        | All              | Yes      |                   |
-# | 3.1 | vpc_securitygroup_default_blocked    | All              |          |                   |
-# | 3.2 | vpc_no_route_to_igw                  | All              |          |                   |
+# | 3.1 | vpc_security_group_default_blocked   | All              |          |                   |
+# | 3.2 | vpc_main_route_table_no_igw          | All              |          |                   |
 # | 3.3 | acm_certificate_expiry_90_days       | Private or above | Yes      |                   |
-# | 4.1 | kms_cmk_rotation_activated           | Private or above | Yes      |                   |
+# | 4.1 | kms_cmk_rotation_enabled             | Private or above | Yes      |                   |
 # | 4.2 | s3_bucket_public_read_prohibited     | All              | Yes      |                   |
 # | 4.3 | s3_bucket_public_write_prohibited    | All              |          |                   |
 # | 4.4 | s3_bucket_ssl_requests_only          | Private or above | Yes      |                   |
@@ -95,7 +95,7 @@
 # Details of the Rules
 # ====================
 #
-# The following rules are covered. The controls are organized by Security Epics of the AWS Cloud Adoption Framework:
+# The following rules are covered. The controls are organized here by the Security Epics of the AWS Cloud Adoption Framework:
 #
 # Identity and Access Management
 # ==============================
@@ -168,7 +168,6 @@ Metadata:
       - Label:
           default: (Advanced User Only) RuleSet options
         Parameters: 
-         - FullVisibility
          - DeployDownToCriticity
          - LM22override
 
@@ -195,14 +194,6 @@ Parameters:
 #
 # BEGINNING OF THE PARAMETER SECTION TO BE ADAPTED TO YOUR NEEDS
 # 
-
-  FullVisibility:
-    Description: Create more rules for a granular visibility, including an individual Rule Criticity. Select "false" will reduce cost and reduce the granular visibility. This option will apply all Rules from the Security Baseline RuleSet.
-    Default: true
-    AllowedValues:
-      - true
-      - false
-    Type: String  
 
   DeployDownToCriticity:
     Description: Choose deploy down to which Rule criticality. Useful to have an iterative approach in monitoring and fixing the compliance of existing accounts. It does not affect PCI guidance RuleSet, HA RuleSet and the Rule 7.1 on Compliance Validation. 
@@ -250,8 +241,6 @@ Parameters:
       - deactivate
   
 Conditions:
-    Extended: !Equals [ !Ref FullVisibility, true ]
-    NotExtended: !Equals [ !Ref FullVisibility, false ]
     PCIguidance: !Equals [ !Ref AddPCIguidanceRuleSet, true ]
     HA: !Equals [ !Ref AddHighAvailaibilityRuleSet, true ]
     AccountClassificationAll: !Or
@@ -277,69 +266,46 @@ Conditions:
         - !Equals [ !Ref DeployDownToCriticity, medium]
     Low: !Equals [ !Ref DeployDownToCriticity, all]
     
-    IAM1notextended: !And
-        - !Condition Critical
-        - !Condition NotExtended
-    LM2notextended: !And
-        - !Condition Critical
-        - !Condition NotExtended
-    IS3notextended: !And
-        - !Condition High
-        - !Condition NotExtended
-    DP4notextended: !And
-        - !Condition Low
-        - !Condition NotExtended
-    
     IAM11: !And
         - !Condition Critical
-        - !Condition Extended
         - !Condition AccountClassificationAll
     IAM12: !Or
         - !And
           - !Condition Critical
-          - !Condition Extended
           - !Condition AccountClassificationAll
         - !Condition PCIguidance
     IAM13: !And
         - !Condition Critical
-        - !Condition Extended
         - !Condition AccountClassificationAll
     IAM14: !Or
         - !And
           - !Condition High
-          - !Condition Extended
           - !Condition AccountClassificationAll
         - !Condition PCIguidance
     LM21: !Or
         - !And
           - !Condition Critical
-          - !Condition Extended
           - !Condition AccountClassificationAll
         - !Condition PCIguidance
     LM22: !And
         - !Condition High
-        - !Condition Extended
         - !Condition AccountClassificationAll
         - !Not [ !Equals [ !Ref LM22override, deactivate]]
     LM23: !Or
         - !And
           - !Condition High
-          - !Condition Extended
           - !Condition AccountClassificationAll
         - !Condition PCIguidance
     LM24: !Or
         - !And
           - !Condition High
-          - !Condition Extended
           - !Condition AccountClassificationAll
         - !Condition PCIguidance
     IS31: !And
         - !Condition Medium
-        - !Condition Extended
         - !Condition AccountClassificationAll
     IS32: !And
         - !Condition High
-        - !Condition Extended
         - !Condition AccountClassificationAll
     IS33: !Or
         - !And
@@ -349,7 +315,6 @@ Conditions:
     DP41: !Or
         - !And
           - !Condition Low
-          - !Condition Extended
           - !Condition AccountClassificationPrivateOrAbove
         - !Condition PCIguidance
     DP42: !Or
@@ -359,7 +324,6 @@ Conditions:
         - !Condition PCIguidance
     DP43: !And
         - !Condition Medium
-        - !Condition Extended
         - !Condition AccountClassificationAll
     DP44: !Or
         - !And
@@ -391,78 +355,6 @@ Resources:
 # Modify your rule set here. Each new Config rule of the ruleSet needs Config Rule creation. For managed rules, modify the Source parameter.
 # Add the RuleCriticity at the beginning of the name of the Rule, followed by a dash ("-"). Examples of the RuleCriticity: 1_CRITICAL | 2_HIGH | 3_MEDIUM | 4_LOW
 #
-
-  RuleSetRule1:
-    Condition: IAM1notextended
-    Type: AWS::Config::ConfigRule
-    Properties:
-      ConfigRuleName: 1_CRITICAL-Identity_and_Access_Management
-      Description: "Checks controls related to Identity and Access Management. Read the code for more details."
-      Source:
-        Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic1-Identity_and_Access_Management ] ]
-        SourceDetails:
-        -
-          EventSource: 'aws.config'
-          MessageType: ScheduledNotification
-          MaximumExecutionFrequency: TwentyFour_Hours
-    DependsOn:
-    - ConfigurationRecorder
-    - DeliveryChannel
-
-  RuleSetRule2:
-    Condition: LM2notextended
-    Type: AWS::Config::ConfigRule
-    Properties:
-      ConfigRuleName: 1_CRITICAL-Logging_and_Monitoring
-      Description: "Checks controls related to Logging and Monitoring. Read the code for more details."
-      Source:
-        Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic2-Logging_and_Monitoring ] ]
-        SourceDetails:
-        -
-          EventSource: 'aws.config'
-          MessageType: ScheduledNotification
-          MaximumExecutionFrequency: TwentyFour_Hours
-    DependsOn:
-    - ConfigurationRecorder
-    - DeliveryChannel
-
-  RuleSetRule3:
-    Condition: IS3notextended
-    Type: AWS::Config::ConfigRule
-    Properties:
-      ConfigRuleName: 2_HIGH-Infrastructure_Security
-      Description: "Checks controls related to Infrastructure Security. Read the code for more details."
-      Source:
-        Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic3-Infrastructure_Security ] ]
-        SourceDetails:
-        -
-          EventSource: 'aws.config'
-          MessageType: ScheduledNotification
-          MaximumExecutionFrequency: TwentyFour_Hours
-    DependsOn:
-    - ConfigurationRecorder
-    - DeliveryChannel
-
-  RuleSetRule4:
-    Condition: DP4notextended
-    Type: AWS::Config::ConfigRule
-    Properties:
-      ConfigRuleName: 4_LOW-Data_Protection
-      Description: "Checks controls related to Data Protection. Read the code for more details."
-      Source:
-        Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic4-Data_Protection ] ]
-        SourceDetails:
-        -
-          EventSource: 'aws.config'
-          MessageType: ScheduledNotification
-          MaximumExecutionFrequency: TwentyFour_Hours
-    DependsOn:
-    - ConfigurationRecorder
-    - DeliveryChannel
 
   RuleSetManagedRuleIS3:
     Type: AWS::Config::ConfigRule
@@ -587,7 +479,7 @@ Resources:
       Description: "Check that the root user did not access the account for the last 24 hours (configurable)."
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic1-Identity_and_Access_Management ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', ROOT_NO_LAST_ACCESS ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -605,7 +497,7 @@ Resources:
       Description: "Check whether the root account user has MFA enabled."
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic1-Identity_and_Access_Management ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', ROOT_MFA_ENABLED ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -623,7 +515,7 @@ Resources:
       Description: "Check the root account user has no access key."
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic1-Identity_and_Access_Management ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', ROOT_NO_ACCESS_KEY ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -641,7 +533,7 @@ Resources:
       Description: Check whether an IAM user has an IAM policy with all permission enabled (or "Action:*"). It includes the AWS-managed policy named AdministratorAccess.
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic1-Identity_and_Access_Management ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', IAM_POLICY_NO_FULL_STAR ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -659,7 +551,7 @@ Resources:
       Description: Check whether the Security CloudTrail is properly configured, including that it 1) is active, 2) includes all regions and global resources 3) is centralized in your Logging AWS account, 4) is encrypted and 5) that the delivery of the logs are successful.
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic2-Logging_and_Monitoring ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', CLOUDTRAIL_CENTRALIZED_ENCRYPTED_LFI ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -677,7 +569,7 @@ Resources:
       Description: Checks that an event bus is configured in all AWS Regions of this account to your Security Monitoring AWS Account, and that an active rule sends all events to the bus.
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic2-Logging_and_Monitoring ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', CLOUDWATCH_EVENT_BUS_CENTRALIZED ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -695,7 +587,7 @@ Resources:
       Description: Check that AWS Config is configured in all AWS Regions of this account, enabled and that the configuration snapshots are sent in a centralized S3 bucket.
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic2-Logging_and_Monitoring ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', CONFIG_ENABLED_CENTRALIZED ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -713,7 +605,7 @@ Resources:
       Description: Check that Amazon GuardDuty is configured in all AWS Regions of this account, and that it is centralized in your Security Monitoring Account.
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic2-Logging_and_Monitoring ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', GUARDDUTY_ENABLED_CENTRALIZED ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -731,7 +623,7 @@ Resources:
       Description: Check that, in all AWS Regions in all VPC, the default security group is blocking all traffic.
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic3-Infrastructure_Security ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', VPC_SECURITY_GROUP_DEFAULT_BLOCKED ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -749,7 +641,7 @@ Resources:
       Description: Check that, in all VPCs of this region, the main route table does not contain a default route to an Internet Gateway (IGW). The route must be in the subnet route table(s).
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic3-Infrastructure_Security ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', VPC_MAIN_ROUTE_TABLE_NO_IGW ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -767,7 +659,7 @@ Resources:
       Description: Check, for all AWS Regions, that the automatic rotation is enabled for all Customer-managed Customer Master Key (CMK).
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', SecurityEpic4-Data_Protection ] ]
+        SourceIdentifier: !Join [ ':', [ 'arn:aws:lambda', !Ref 'AWS::Region', !Ref ComplianceAccountId, 'function', KMS_CMK_ROTATION_ENABLED ] ]
         SourceDetails:
         -
           EventSource: 'aws.config'
@@ -880,7 +772,7 @@ Resources:
         AccountClassification: !Ref AccountClassification
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ":", [ 'arn:aws:lambda', !Ref "AWS::Region", !Ref ComplianceAccountId, 'function', SecurityEpic7-Compliance_Validation ] ]
+        SourceIdentifier: !Join [ ":", [ 'arn:aws:lambda', !Ref "AWS::Region", !Ref ComplianceAccountId, 'function', COMPLIANCE_RULESET_LATEST_INSTALLED ] ]
         SourceDetails:
         -
           EventSource: "aws.config"

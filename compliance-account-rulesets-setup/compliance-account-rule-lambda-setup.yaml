@@ -26,6 +26,10 @@ Parameters:
     MaxLength: 63
     MinLength: 3
     ConstraintDescription: Enter the name not the ARN, must be in the same region than the stack
+  SourceLambdaDirectory:
+    Type: String
+    Description: Directory name where lambda code zips are placed
+    Default: 'rule-code'
   RuleSetName:
     Type: String
     Description: Lambda zip name to deploy (name of rule will be the same)
@@ -41,7 +45,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref SourceLambdaBucket
-        S3Key: !Join [ ".", [ !Ref RuleSetName , zip]]
+        S3Key: !Join [ '', [ !Ref SourceLambdaDirectory, "/", !Ref RuleSetName , '.zip']]
       FunctionName: !Ref RuleSetName
       Handler: !Join [ ".", [ !Ref RuleSetName , lambda_handler]]
       Role: !Ref LambdaRuleRoleARN
