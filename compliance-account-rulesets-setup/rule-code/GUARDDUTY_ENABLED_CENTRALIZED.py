@@ -108,11 +108,11 @@ def guardduty_enabled_centralized(event):
                 continue
         
         if AMAZON_GUARDDUTY_ACCOUNT_ID == gd_master["Master"]["AccountId"]:
-            if gd_master["Master"]["RelationshipStatus"] == "Monitored":
+            if gd_master["Master"]["RelationshipStatus"] == "Enabled":
                 put_eval(build_evaluation(event, "COMPLIANT", "GuardDuty is enabled and centralized.", region), result_token)
                 continue
             else:
-                put_eval(build_evaluation(event, "NON_COMPLIANT", "GuardDuty has the correct Central account, but it is not in 'Monitored' state.", region), result_token)
+                put_eval(build_evaluation(event, "NON_COMPLIANT", "GuardDuty has the correct Central account, but it is not in 'Enabled' state.", region), result_token)
                 continue
         else: 
             put_eval(build_evaluation(event, "NON_COMPLIANT", "GuardDuty is centralized in another account (" + str(gd_master["Master"]["AccountId"]) + ") than the account specified as parameter (" + str(AMAZON_GUARDDUTY_ACCOUNT_ID) + ").", region), result_token)
