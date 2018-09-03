@@ -1,0 +1,16 @@
+{
+  "Version": "1.0",
+  "Parameters": {
+    "RuleName": "GUARDDUTY_ENABLED_CENTRALIZED",
+    "SourceRuntime": "python3.6",
+    "CodeKey": "GUARDDUTY_ENABLED_CENTRALIZED.zip",
+    "InputParameters": "{}",
+    "OptionalParameters": "{\"CentralMonitoringAccount\":\"\"}",
+    "SourcePeriodic": "TwentyFour_Hours",
+    "RuleSets": [
+      "baseline",
+      "rulecriticity:high",
+      "pci"
+    ]
+  }
+}
