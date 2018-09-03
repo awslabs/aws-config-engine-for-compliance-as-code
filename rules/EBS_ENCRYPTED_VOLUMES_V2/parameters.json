@@ -1,0 +1,17 @@
+{
+  "Version": "1.0",
+  "Parameters": {
+    "RuleName": "EBS_ENCRYPTED_VOLUMES_V2",
+    "SourceRuntime": "python3.6",
+    "CodeKey": "EBS_ENCRYPTED_VOLUMES_V2.zip",
+    "InputParameters": "{}",
+    "OptionalParameters": "{\"VolumeExceptionList\": \"\", \"SubnetExceptionList\": \"\"}",
+    "SourceEvents": "AWS::EC2::Volume",
+    "RuleSets": [
+      "confidentiality:high",
+      "confidentiality:medium",
+      "pci",
+      "rulecriticity:high"
+    ]
+  }
+}

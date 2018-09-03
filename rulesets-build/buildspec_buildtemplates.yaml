@@ -1,0 +1,46 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - echo Entered the install phase...
+      - apt-get update -y
+      - apt-get install zip
+      - pip install rdk
+      - curl -O -L https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64
+      - chmod +x jq-linux64
+      - sudo mv jq-linux64 /usr/bin/jq
+  pre_build:
+    commands:
+      - echo Entered the pre_build phase...
+  build:
+    commands:
+      - echo Entered the build phase...
+      - echo Build started on `date`
+      - echo [] Create lambda for all the rules
+      - cd rules
+      - rdk deploy -f --all > ../result.txt
+      - echo [] List all the rulesets
+      - rdk rulesets list > rulesets_list.txt
+      - aws s3 cp rulesets_list.txt s3://$OUTPUT_BUCKET/rulesets_list.txt
+      - echo [] Create default template
+      - rdk create-rule-template --rulesets $DEFAULT_RULESET --output-file default.json --rules-only
+      - aws s3 cp default.json s3://$OUTPUT_BUCKET/default.json
+      - echo Copy Account_List if it exists
+      - cd ..
+      - if [ "$ACCOUNT_LIST" != "none" ]; then aws s3 cp s3://$ACCOUNT_LIST account_list.json; chmod a+x ./rulesets-build/generate_rule_templates_per_account.sh; ./rulesets-build/generate_rule_templates_per_account.sh $OUTPUT_BUCKET >> result.txt; cat account_list.json | jq -r '.AllAccounts[] | ([.Accountname, .AccountID , (.OwnerEmail | join(";")), (.Tags| join(","))] | join(","))' > account_list.csv; aws s3 cp account_list.csv s3://$OUTPUT_BUCKET/csv/account_list.csv; fi      
+      - echo deploy/update ETL
+      - zip -j etl_evaluations.zip ./rulesets-build/etl_evaluations.py
+      - aws lambda update-function-code --function-name ComplianceEngine-ETL --zip-file fileb://etl_evaluations.zip 
+      - echo deploy/update Athena
+      - if [ "$DATALAKE_QUERIES_BOOL" = "true" ] && [ "$FIREHOSE_KEY_LIST" != "none" ] && [ "$ATHENA_COLUMN_LIST" != "none" ]; then aws cloudformation deploy --stack-name Compliance-Engine-Datalake-DO-NOT-DELETE --template-file ./rulesets-build/compliance-account-analytics-setup.yaml --no-fail-on-empty-changeset --parameter-overrides CentralizedS3BucketConfig="$CONFIG_CENTRAL_BUCKET" CentralizedS3BucketComplianceEventName="$COMPLIANCE_EVENT_CENTRAL_BUCKET" KeyListGeneratedByFirehose="$FIREHOSE_KEY_LIST" ColumnKeyList="$ATHENA_COLUMN_LIST" AccountList="$ACCOUNT_LIST" LocationAccountListCSV="$OUTPUT_BUCKET"; fi
+  post_build:
+    commands:
+      - echo Entered the post_build phase...
+      - echo Build completed on `date`
+artifacts:
+  files:
+    - result.txt
+    - ./rulesets-build/buildspec_deploytemplates.yaml
+    - ./rulesets-build/deploy_rule_templates.py
+  discard-paths: yes

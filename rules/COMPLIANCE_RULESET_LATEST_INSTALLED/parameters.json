@@ -1,0 +1,11 @@
+{
+  "Version": "1.0",
+  "Parameters": {
+    "RuleName": "COMPLIANCE_RULESET_LATEST_INSTALLED",
+    "SourceRuntime": "python3.6",
+    "CodeKey": "COMPLIANCE_RULESET_LATEST_INSTALLED.zip",
+    "InputParameters": "{}",
+    "OptionalParameters": "{}",
+    "SourcePeriodic": "TwentyFour_Hours"
+  }
+}

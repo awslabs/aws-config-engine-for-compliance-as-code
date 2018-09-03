@@ -1,0 +1,289 @@
+#
+# Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License").
+# You may not use this file except in compliance with the License.
+# A copy of the License is located at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# or in the "license" file accompanying this file. This file is distributed
+# on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied. See the License for the specific language governing
+# permissions and limitations under the License.
+#
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Initialize the Compliance-as-Code oversight in this Application Account
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Compliance-as-Code Engine Configuration
+        Parameters:
+         - MainRegion
+         - ComplianceAccountId
+         - ConfigAndComplianceAuditRoleName
+         - CentralizedS3BucketConfigFullName
+      - Label:
+          default: (Advanced User Only) Deployment options
+        Parameters:
+         - DeployAWSConfig
+         - RuleFrequency
+         - LambdaFunctionName
+         - EngineComplianceRule
+
+Parameters:
+  CentralizedS3BucketConfigFullName:
+    ConstraintDescription: Enter DNS-compliant name
+    Description: (Only if DeployAWSConfig is set to "true") Bucket name where Config logs are centrally stored. It is located in the Compliance Account.
+    Default: centralized-config-112233445566
+    MaxLength: 63
+    MinLength: 10
+    Type: String
+  ComplianceAccountId:
+    ConstraintDescription: 12 digits, no dashes
+    Description: Account ID of the Compliance Account. The compliance-as-code engine must be installed in this account first.
+    Default: 112233445566
+    MaxLength: 12
+    MinLength: 12
+    Type: String
+  ConfigAndComplianceAuditRoleName:
+    Description: (Only if DeployAWSConfig is set to "true") Role Name of the Compliance Account Cross Account Role
+    Default: AWSConfigAndComplianceAuditRole-DO-NOT-DELETE
+    Type: String
+  MainRegion:
+    Description: Region where IAM resources are deployed.
+    Default: us-west-2
+    Type: String
+  EngineComplianceRule:
+    Description: Rule name which review the state of this deployment
+    Default: COMPLIANCE_RULESET_LATEST_INSTALLED
+    Type: String
+  RuleFrequency:
+    Description: Frequency to verify the compliance of this deployment
+    AllowedValues:
+     - One_Hour
+     - Three_Hours
+     - Six_Hours
+     - Twelve_Hours
+     - TwentyFour_Hours
+    Default: TwentyFour_Hours
+    Type: String
+  LambdaFunctionName:
+    Description: Lambda name in the Compliance Account
+    Default: RDK-Rule-Function-COMPLIANCERULESETLATESTINSTALLED
+    Type: String
+  DeployAWSConfig:
+    Description: Set to "true" to configure AWS Config. If set to "false", you must give the compliance account to assume the AWS Config service Role, and as well permissions to deploy CloudFormation templates and control Config.
+    Default: true
+    AllowedValues:
+      - true
+      - false
+    Type: String
+
+Conditions:
+  IsMainRegion: !Equals [ !Ref 'AWS::Region', !Ref MainRegion ]
+  NotMainRegion: !Not [!Equals [!Ref 'AWS::Region', !Ref MainRegion ]]
+  SetConfig: !Equals [ !Ref DeployAWSConfig, 'true']
+  NoSetConfig: !Equals [ !Ref DeployAWSConfig, 'false']
+  SetConfigMain: !And
+      - !Condition IsMainRegion
+      - !Condition SetConfig
+  SetConfigNotMain: !And
+      - !Condition NotMainRegion
+      - !Condition SetConfig
+  NoSetConfigMain: !And
+      - !Condition IsMainRegion
+      - !Condition NoSetConfig
+  NoSetConfigNotMain: !And
+      - !Condition NotMainRegion
+      - !Condition NoSetConfig
+
+Resources:
+  MainConfigurationRecorder:
+    Condition: SetConfigMain
+    Type: AWS::Config::ConfigurationRecorder
+    Properties:
+      RecordingGroup:
+        AllSupported: true
+        IncludeGlobalResourceTypes: true
+      RoleARN: !Join ["", ["arn:aws:iam::", !Ref 'AWS::AccountId', ":role/service-role/", !Ref ConfigAndComplianceAuditRoleName]]
+    DependsOn:
+    - AWSConfigAndComplianceRole
+    - ConfigS3WritePolicy
+
+  NotMainConfigurationRecorder:
+    Condition: SetConfigNotMain
+    Type: AWS::Config::ConfigurationRecorder
+    Properties:
+      RecordingGroup:
+        AllSupported: true
+        IncludeGlobalResourceTypes: false
+      RoleARN: !Join ["", ["arn:aws:iam::", !Ref 'AWS::AccountId', ":role/service-role/", !Ref ConfigAndComplianceAuditRoleName]]
+
+  MainDeliveryChannel:
+    Condition: SetConfigMain
+    Type: AWS::Config::DeliveryChannel
+    Properties:
+      ConfigSnapshotDeliveryProperties:
+        DeliveryFrequency: TwentyFour_Hours
+      S3BucketName: !Ref CentralizedS3BucketConfigFullName
+    DependsOn:
+    - ConfigS3WritePolicy
+
+  NotMainDeliveryChannel:
+    Condition: SetConfigNotMain
+    Type: AWS::Config::DeliveryChannel
+    Properties:
+      ConfigSnapshotDeliveryProperties:
+        DeliveryFrequency: TwentyFour_Hours
+      S3BucketName: !Ref CentralizedS3BucketConfigFullName
+
+  AggregationAuthorization:
+    Condition: SetConfig
+    Type: "AWS::Config::AggregationAuthorization"
+    Properties:
+      AuthorizedAccountId: !Ref ComplianceAccountId
+      AuthorizedAwsRegion: !Ref 'AWS::Region'
+
+  AWSConfigAndComplianceRole:
+    Condition: SetConfigMain
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Action:
+          - sts:AssumeRole
+          Principal:
+            Service: config.amazonaws.com
+        - Effect: Allow
+          Action:
+          - sts:AssumeRole
+          Principal:
+            AWS: !Ref ComplianceAccountId
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+      - 'arn:aws:iam::aws:policy/service-role/AWSConfigRole'
+      - 'arn:aws:iam::aws:policy/ReadOnlyAccess'
+      Path: /service-role/
+      RoleName: !Ref ConfigAndComplianceAuditRoleName
+
+  ConfigS3WritePolicy:
+    Condition: SetConfigMain
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      Roles:
+      - !Ref ConfigAndComplianceAuditRoleName
+      PolicyName: !Join
+        - '-'
+        - - ConfigS3Write
+          - !Ref 'AWS::AccountId'
+          - !Ref 'AWS::Region'
+      PolicyDocument:
+        Statement:
+        - Action:
+          - s3:PutObject
+          Effect: Allow
+          Resource:
+          - !Join [ "", [ "arn:aws:s3:::", !Ref CentralizedS3BucketConfigFullName, "/AWSLogs/", !Ref 'AWS::AccountId', "/*"] ]
+          Sid: !Join ["", ["ConfigS3Write", !Ref 'AWS::AccountId'] ]
+        Version: 2012-10-17
+    DependsOn:
+    - AWSConfigAndComplianceRole
+
+  ConfigDeployPolicy:
+    Condition: SetConfigMain
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      Roles:
+      - !Ref ConfigAndComplianceAuditRoleName
+      PolicyName: !Join
+        - '-'
+        - - ConfigDeploy
+          - !Ref 'AWS::AccountId'
+          - !Ref 'AWS::Region'
+      PolicyDocument:
+        Statement:
+        - Action:
+          - cloudformation:*
+          Effect: Allow
+          Resource:
+          - !Join [ "", [ "arn:aws:cloudformation:*:", !Ref 'AWS::AccountId', ":stack/Compliance-Engine-Benchmark-DO-NOT-DELETE*" ]]
+          Sid: !Join ["", ["ConfigDeployCfn", !Ref 'AWS::AccountId'] ]
+        - Action:
+          - config:*
+          Effect: Allow
+          Resource: "*"
+          Sid: !Join ["", ["ConfigAccess", !Ref 'AWS::AccountId'] ]
+        Version: 2012-10-17
+    DependsOn:
+    - AWSConfigAndComplianceRole
+
+  MainCaCReporter:
+    Condition: SetConfigMain
+    Type: AWS::Config::ConfigRule
+    Properties:
+      ConfigRuleName: !Ref EngineComplianceRule
+      Description: Check that the latest Compliance-as-code template is installed in this account.
+      Source:
+        Owner: CUSTOM_LAMBDA
+        SourceIdentifier: !Join [ ":", [ 'arn:aws:lambda', !Ref "AWS::Region", !Ref ComplianceAccountId, 'function', !Ref LambdaFunctionName ] ]
+        SourceDetails:
+        -
+          EventSource: "aws.config"
+          MaximumExecutionFrequency: !Ref RuleFrequency
+          MessageType: ScheduledNotification
+    DependsOn:
+    - MainConfigurationRecorder
+    - MainDeliveryChannel
+
+  MainCaCReporterNotConfig:
+    Condition: NoSetConfigMain
+    Type: AWS::Config::ConfigRule
+    Properties:
+      ConfigRuleName: !Ref EngineComplianceRule
+      Description: Check that the latest Compliance-as-code template is installed in this account.
+      Source:
+        Owner: CUSTOM_LAMBDA
+        SourceIdentifier: !Join [ ":", [ 'arn:aws:lambda', !Ref "AWS::Region", !Ref ComplianceAccountId, 'function', !Ref LambdaFunctionName ] ]
+        SourceDetails:
+        -
+          EventSource: "aws.config"
+          MaximumExecutionFrequency: !Ref RuleFrequency
+          MessageType: ScheduledNotification
+
+  NotMainCaCReporter:
+    Condition: SetConfigNotMain
+    Type: AWS::Config::ConfigRule
+    Properties:
+      ConfigRuleName: !Ref EngineComplianceRule
+      Description: Check that the latest template for the RuleSet is installed in this account.
+      Source:
+        Owner: CUSTOM_LAMBDA
+        SourceIdentifier: !Join [ ":", [ 'arn:aws:lambda', !Ref "AWS::Region", !Ref ComplianceAccountId, 'function', !Ref LambdaFunctionName ] ]
+        SourceDetails:
+        -
+          EventSource: "aws.config"
+          MaximumExecutionFrequency: !Ref RuleFrequency
+          MessageType: ScheduledNotification
+    DependsOn:
+    - NotMainConfigurationRecorder
+    - NotMainDeliveryChannel
+
+  NotMainCaCReporterNotConfig:
+    Condition: NoSetConfigNotMain
+    Type: AWS::Config::ConfigRule
+    Properties:
+      ConfigRuleName: !Ref EngineComplianceRule
+      Description: Check that the latest template for the RuleSet is installed in this account.
+      Source:
+        Owner: CUSTOM_LAMBDA
+        SourceIdentifier: !Join [ ":", [ 'arn:aws:lambda', !Ref "AWS::Region", !Ref ComplianceAccountId, 'function', !Ref LambdaFunctionName ] ]
+        SourceDetails:
+        -
+          EventSource: "aws.config"
+          MaximumExecutionFrequency: !Ref RuleFrequency
+          MessageType: ScheduledNotification
