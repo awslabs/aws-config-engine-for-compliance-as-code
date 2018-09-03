@@ -97,18 +97,18 @@ def evaluate_compliance(event, configuration_item, valid_rule_parameters):
     # Inline policies
     inline_policy_names = get_all_group_inline_policy_names(iam_client, group_name)
     for policy_name in inline_policy_names:
-        policy_document = json.loads(iam_client.get_group_policy(GroupName=group_name, PolicyName=policy_name)['PolicyDocument'])
+        policy_document = iam_client.get_group_policy(GroupName=group_name, PolicyName=policy_name)['PolicyDocument']
         if is_statements_include_full_star_allow(policy_document['Statement']):
-            return build_evaluation_from_config_item(configuration_item, "NON_COMPLIANT", annotation='An inline policy attached to the group has full star allow permissions.')
+            return build_evaluation_from_config_item(configuration_item, "NON_COMPLIANT", annotation='An inline policy "' + policy_name + '" attached to the group "' + group_name + '" has full star allow permissions.')
 
     # Managed policies
-    managed_policy_arn = get_all_group_managed_policy_arn(iam_client, group_name)
-    for policy_arn in managed_policy_arn:
+    managed_policy_arn_and_name = get_all_group_managed_policy_arn_and_name(iam_client, group_name)
+    for policy_arn, policy_name in managed_policy_arn_and_name.items():
         get_policy = iam_client.get_policy(PolicyArn=policy_arn)
         version = get_policy['Policy']['DefaultVersionId']
         get_policy_version = iam_client.get_policy_version(PolicyArn=policy_arn, VersionId=version)
         if is_statements_include_full_star_allow(get_policy_version['PolicyVersion']['Document']['Statement']):
-            return build_evaluation_from_config_item(configuration_item, "NON_COMPLIANT", annotation='A managed policy attached to the group has full star allow permissions.')
+            return build_evaluation_from_config_item(configuration_item, "NON_COMPLIANT", annotation='A managed policy with name "' + policy_name + '" attached to the group "' + group_name + '" has full star allow permissions.')
 
     return "COMPLIANT"
 
@@ -123,21 +123,36 @@ def get_all_group_inline_policy_names(iam_client, group_name):
             break
     return all_group_inline_policies
 
-def get_all_group_managed_policy_arn(iam_client, group_name):
-    all_group_managed_policies_arn = []
+def get_all_group_managed_policy_arn_and_name(iam_client, group_name):
+    all_group_managed_policies_arn_and_name = {}
     list_policy_arn = iam_client.list_attached_group_policies(GroupName=group_name, MaxItems=1000)
     while True:
         for policy_dict in list_policy_arn['AttachedPolicies']:
-            all_group_managed_policies_arn.append(policy_dict['PolicyArn'])
+            all_group_managed_policies_arn_and_name[policy_dict['PolicyArn']] = policy_dict['PolicyName']
         if 'Marker' in list_policy_arn:
             list_policy_arn = iam_client.list_attached_group_policies(GroupName=group_name, MaxItems=1000, Marker=list_policy_arn['Marker'])
         else:
             break
-    return all_group_managed_policies_arn
+    return all_group_managed_policies_arn_and_name
 
-def is_statements_include_full_star_allow(statement_list):
-    for statement in statement_list:
+def is_statements_include_full_star_allow(statements):
+    statement_list = []
+    if isinstance(statements, dict):
+        statement_list = [statements]
+    elif isinstance(statements, list):
+        statement_list = statements
+    else:
+        print("Not recognized statement type:")
+        print(statements)
+        return False
+    
+    for statement in statement_list:        
         if statement['Effect'] == 'Deny':
+            continue
+
+        if 'Action' not in statement:
+            print("No 'Action' in statement")
+            print(statement)
             continue
 
         if isinstance(statement['Action'], list):
