@@ -33,7 +33,7 @@ phases:
       - zip -j etl_evaluations.zip ./rulesets-build/etl_evaluations.py
       - aws lambda update-function-code --function-name ComplianceEngine-ETL --zip-file fileb://etl_evaluations.zip 
       - echo deploy/update Athena
-      - if [ "$DATALAKE_QUERIES_BOOL" = "true" ] && [ "$FIREHOSE_KEY_LIST" != "none" ] && [ "$ATHENA_COLUMN_LIST" != "none" ]; then aws cloudformation deploy --stack-name Compliance-Engine-Datalake-DO-NOT-DELETE --template-file ./rulesets-build/compliance-account-analytics-setup.yaml --no-fail-on-empty-changeset --parameter-overrides CentralizedS3BucketConfig="$CONFIG_CENTRAL_BUCKET" CentralizedS3BucketComplianceEventName="$COMPLIANCE_EVENT_CENTRAL_BUCKET" KeyListGeneratedByFirehose="$FIREHOSE_KEY_LIST" ColumnKeyList="$ATHENA_COLUMN_LIST" AccountList="$ACCOUNT_LIST" LocationAccountListCSV="$OUTPUT_BUCKET"; fi
+      - if [ "$DATALAKE_QUERIES_BOOL" = "true" ] && [ "$FIREHOSE_KEY_LIST" != "none" ] && [ "$ATHENA_COLUMN_LIST" != "none" ]; then chmod a+x ./rulesets-build/deploy_datalake.sh; ./rulesets-build/deploy_datalake.sh "$CONFIG_CENTRAL_BUCKET" "$COMPLIANCE_EVENT_CENTRAL_BUCKET" "$FIREHOSE_KEY_LIST" "$ATHENA_COLUMN_LIST" "$ACCOUNT_LIST" "$OUTPUT_BUCKET"; fi
   post_build:
     commands:
       - echo Entered the post_build phase...
