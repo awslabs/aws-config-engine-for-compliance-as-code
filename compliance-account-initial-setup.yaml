@@ -23,10 +23,12 @@ Metadata:
           default: Compliance-as-Code Engine Configuration
         Parameters:
          - MainRegion
+         - OtherActiveRegions
       - Label:
           default: (Advanced User Only) Deployment options
         Parameters:
          - DefaultRuleSet
+         - DefaultRuleSetOtherRegions
          - AccountListLocation
          - WhitelistLocation
          - CentralizedS3BucketConfig
@@ -35,6 +37,7 @@ Metadata:
          - CodePipelineArtifactS3BucketConfig
          - CentralizedS3BucketComplianceEventName
          - DatalakeQueries
+         - EngineComplianceRule
 
 Parameters:
   CentralizedS3BucketConfig:
@@ -45,8 +48,36 @@ Parameters:
     MinLength: 10
     Type: String
   MainRegion:
-    Description: Region which is designated as main Region.
+    Description: Region which is designated as main Region (e.g. us-west-2).
     Default: us-west-2
+    AllowedValues: 
+    - us-east-1
+    - us-east-2
+    - us-west-1
+    - us-west-2
+    - ap-south-1
+    - ap-northeast-1
+    - ap-northeast-2
+    - ap-southeast-1
+    - ap-southeast-2
+    - ca-central-1
+    - eu-central-1
+    - eu-west-1
+    - eu-west-2
+    - eu-west-3
+    - sa-east-1
+    AllowedPattern: ^.{0,14}$
+    ConstraintDescription: Select one AWS Region only.
+    Type: String
+  OtherActiveRegions:
+    Description: List of Regions which needs Rules, which are not the main Region, separated by comma and no space (e.g. us-west-1,ap-southeast-1).
+    Default: ""
+    AllowedPattern: (^$|^(ap|ca|eu|sa|us)-(north|east|west|south|central)(east|west)*-\d(,(ap|ca|eu|sa|us)-(north|east|west|south|central)(east|west)*-\d)*$)
+    Type: String
+    ConstraintDescription: List regions separated by comma and without any space.
+  EngineComplianceRule:
+    Description: Rule name which review the state of this deployment
+    Default: COMPLIANCE_RULESET_LATEST_INSTALLED
     Type: String
   CodebuildSourceS3BucketConfig:
     ConstraintDescription: Enter DNS-compliant prefix
@@ -80,6 +111,10 @@ Parameters:
     Description: Default RuleSet name to deploy in AWS accounts.
     Default: baseline
     Type: String
+  DefaultRuleSetOtherRegions:
+    Description: Default RuleSet name to deploy in non-main regions in AWS accounts, if other regions are used.
+    Default: otherregionsbaseline
+    Type: String
   AccountListLocation:
     Description: Bucket name and key of the location of your account list (i.e. some-bucket/my_account_list.json) or let it empty in no account list.
     Default: ""
@@ -101,6 +136,7 @@ Conditions:
     NotMainRegion: !Not [ !Condition IsMainRegion ]
     AccountListLocation: !Not [ !Equals [ "", !Ref AccountListLocation]]
     WhitelistLocation: !Not [ !Equals [ "", !Ref WhitelistLocation]]
+    OtherActiveRegions: !Not [ !Equals [ "", !Ref OtherActiveRegions]]
 
 Resources:
 
@@ -230,10 +266,18 @@ Resources:
         EnvironmentVariables:
          - Name: OUTPUT_BUCKET
            Value: !Join [ "-", [ !Ref CodebuildDestinationS3BucketConfig, !Ref 'AWS::AccountId', !Ref 'AWS::Region']]
+         - Name: OUTPUT_BUCKET_NO_REGION
+           Value: !Join [ "-", [ !Ref CodebuildDestinationS3BucketConfig, !Ref 'AWS::AccountId']]
          - Name: DEFAULT_RULESET
            Value: !Ref DefaultRuleSet
+         - Name: DEFAULT_RULESET_OTHER_REGIONS
+           Value: !Ref DefaultRuleSetOtherRegions
          - Name: ACCOUNT_LIST
            Value: !If [ AccountListLocation, !Ref AccountListLocation, 'none']
+         - Name: OTHER_ACTIVE_REGIONS
+           Value: !If [ OtherActiveRegions, !Ref OtherActiveRegions, 'none']
+         - Name: ENGINE_RULE_NAME
+           Value: !Ref EngineComplianceRule
          - Name: DATALAKE_QUERIES_BOOL
            Value: !Ref DatalakeQueries
          - Name: FIREHOSE_KEY_LIST
@@ -266,8 +310,12 @@ Resources:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/python:3.6.5
         EnvironmentVariables:
-         - Name: OUTPUT_BUCKET
-           Value: !Join [ "-", [ !Ref CodebuildDestinationS3BucketConfig, !Ref 'AWS::AccountId', !Ref 'AWS::Region']]
+         - Name: OUTPUT_BUCKET_NO_REGION
+           Value: !Join [ "-", [ !Ref CodebuildDestinationS3BucketConfig, !Ref 'AWS::AccountId']]
+         - Name: OTHER_ACTIVE_REGIONS
+           Value: !If [ OtherActiveRegions, !Ref OtherActiveRegions, 'none']
+         - Name: ENGINE_RULE_NAME
+           Value: !Ref EngineComplianceRule       
       Source:
         Type: CODEPIPELINE
         BuildSpec: buildspec_deploytemplates.yaml
@@ -277,6 +325,7 @@ Resources:
      - CodeBuildRole
 
   CodebuildSourceS3Bucket:
+    Condition: IsMainRegion
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Join [ "-", [ !Ref CodebuildSourceS3BucketConfig, !Ref 'AWS::AccountId', !Ref 'AWS::Region']]
@@ -297,6 +346,7 @@ Resources:
         Status: Enabled
 
   CodePipelineBucket:
+    Condition: IsMainRegion
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Join [ "-", [ !Ref CodePipelineArtifactS3BucketConfig, !Ref 'AWS::AccountId', !Ref 'AWS::Region']]
@@ -396,8 +446,22 @@ Resources:
               - logs:PutLogEvents
               - s3:List*
               - s3:CreateBucket
+              - lambda:CreateFunction
+              - lambda:CreateEventSourceMapping
+              - lambda:UpdateFunctionConfiguration
+              - lambda:Get*
+              - lambda:List*
               Effect: Allow
               Resource: "*"
+            - Sid: RdkPermissionsLambda
+              Action:
+              - lambda:AddPermission
+              - lambda:UpdateFunctionCode
+              - lambda:PublishVersion
+              - lambda:DeleteFunction
+              - lambda:RemovePermission
+              Effect: Allow
+              Resource: !Join [ ":", [ "arn:aws:lambda", !Ref "AWS::Region", !Ref "AWS::AccountId", "function:RDK-Rule-Function-*"]]
             - Sid: RdkPermissionsS3
               Action:
               - s3:PutObject
@@ -406,7 +470,7 @@ Resources:
               Resource:
               - "arn:aws:s3:::config-rule-code-bucket*"
               - !Join ["", [ "arn:aws:s3:::", !Join [ "-", [ !Ref CodebuildSourceS3BucketConfig, !Ref 'AWS::AccountId', !Ref 'AWS::Region']], "*"]]
-              - !Join ["", [ "arn:aws:s3:::", !Join [ "-", [ !Ref CodebuildDestinationS3BucketConfig, !Ref 'AWS::AccountId', !Ref 'AWS::Region']], "*"]]
+              - !Join ["", [ "arn:aws:s3:::", !Join [ "-", [ !Ref CodebuildDestinationS3BucketConfig, !Ref 'AWS::AccountId']], "*"]]
               - !Join ["", [ "arn:aws:s3:::", !Join [ "-", [ !Ref CodePipelineArtifactS3BucketConfig, !Ref 'AWS::AccountId', !Ref 'AWS::Region']], "*"]]
             - Sid: RdkPermissionsPassRole
               Action:
@@ -511,7 +575,8 @@ Resources:
 
 # ETL on the compliance event data
 
-  LambdaETL: 
+  LambdaETL:  
+    Condition: IsMainRegion
     Type: "AWS::Lambda::Function"
     Properties:
       FunctionName: ComplianceEngine-ETL
@@ -527,7 +592,8 @@ Resources:
       Runtime: python3.6
       Timeout: 300
       
-  LambdaETLInvokePermission:
+  LambdaETLInvokePermission:  
+    Condition: IsMainRegion
     Type: AWS::Lambda::Permission
     Properties:
       FunctionName: !GetAtt LambdaETL.Arn

@@ -18,17 +18,20 @@ phases:
       - echo Entered the build phase...
       - echo Build started on `date`
       - echo [] Create lambda for all the rules
+      - if [ "$OTHER_ACTIVE_REGIONS" != "none" ]; then chmod a+x ./rulesets-build/multi-region/deploy_lambda.sh; ./rulesets-build/multi-region/deploy_lambda.sh $OTHER_ACTIVE_REGIONS $ENGINE_RULE_NAME $AWS_DEFAULT_REGION; fi
       - cd rules
       - rdk deploy -f --all > ../result.txt
       - echo [] List all the rulesets
       - rdk rulesets list > rulesets_list.txt
       - aws s3 cp rulesets_list.txt s3://$OUTPUT_BUCKET/rulesets_list.txt
-      - echo [] Create default template
+      - echo [] Create default template for main region
       - rdk create-rule-template --rulesets $DEFAULT_RULESET --output-file default.json --rules-only
       - aws s3 cp default.json s3://$OUTPUT_BUCKET/default.json
-      - echo Copy Account_List if it exists
       - cd ..
-      - if [ "$ACCOUNT_LIST" != "none" ]; then aws s3 cp s3://$ACCOUNT_LIST account_list.json; chmod a+x ./rulesets-build/generate_rule_templates_per_account.sh; ./rulesets-build/generate_rule_templates_per_account.sh $OUTPUT_BUCKET >> result.txt; cat account_list.json | jq -r '.AllAccounts[] | ([.Accountname, .AccountID , (.OwnerEmail | join(";")), (.Tags| join(","))] | join(","))' > account_list.csv; aws s3 cp account_list.csv s3://$OUTPUT_BUCKET/csv/account_list.csv; fi      
+      - echo [] Create default template for all other regions
+      - if [ "$OTHER_ACTIVE_REGIONS" != "none" ]; then chmod a+x ./rulesets-build/multi-region/generate_default_template.sh; ./rulesets-build/multi-region/generate_default_template.sh $OTHER_ACTIVE_REGIONS $DEFAULT_RULESET_OTHER_REGIONS $OUTPUT_BUCKET_NO_REGION; fi
+      - echo Copy Account_List if it exists
+      - if [ "$ACCOUNT_LIST" != "none" ]; then aws s3 cp s3://$ACCOUNT_LIST account_list.json; chmod a+x ./rulesets-build/generate_rule_templates_per_account.sh; ./rulesets-build/generate_rule_templates_per_account.sh $OTHER_ACTIVE_REGIONS $OUTPUT_BUCKET $OUTPUT_BUCKET_NO_REGION >> result.txt; cat account_list.json | jq -r '.AllAccounts[] | ([.Accountname, .AccountID , (.OwnerEmail | join(";")), (.Tags| join(","))] | join(","))' > account_list.csv; aws s3 cp account_list.csv s3://$OUTPUT_BUCKET/csv/account_list.csv; fi      
       - echo deploy/update ETL
       - zip -j etl_evaluations.zip ./rulesets-build/etl_evaluations.py
       - aws lambda update-function-code --function-name ComplianceEngine-ETL --zip-file fileb://etl_evaluations.zip 

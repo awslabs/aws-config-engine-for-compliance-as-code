@@ -10,7 +10,8 @@
     "SourceIdentifier": "S3_BUCKET_PUBLIC_WRITE_PROHIBITED",
     "RuleSets": [
       "baseline",
-      "rulecriticity:medium"
+      "rulecriticity:medium",
+      "otherregionsbaseline"
     ]
   }
 }

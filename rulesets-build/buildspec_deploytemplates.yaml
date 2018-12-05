@@ -8,7 +8,7 @@ phases:
     commands:
       - echo Entered the build phase...
       - echo Build started on `date`
-      - python ./deploy_rule_templates.py $OUTPUT_BUCKET
+      - python ./deploy_rule_templates.py $AWS_DEFAULT_REGION $OUTPUT_BUCKET_NO_REGION $ENGINE_RULE_NAME $OTHER_ACTIVE_REGIONS
   post_build:
     commands:
       - echo Entered the post_build phase...

@@ -12,7 +12,8 @@
       "confidentiality:high",
       "confidentiality:medium",
       "pci",
-      "rulecriticity:high"
+      "rulecriticity:high",
+      "otherregionsbaseline"
     ]
   }
 }

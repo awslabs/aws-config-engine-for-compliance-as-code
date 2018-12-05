@@ -11,7 +11,8 @@
     "RuleSets": [
       "baseline",
       "pci",
-      "rulecriticity:high"
+      "rulecriticity:high",
+      "otherregionsbaseline"
     ]
   }
 }

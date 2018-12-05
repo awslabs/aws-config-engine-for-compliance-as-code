@@ -21,19 +21,19 @@ Please give feedback or bug report by email: jrault@amazon.com
  
 # Getting Started
 
-## Initial Deployment
+## In a single AWS Region (in a single or multi-account environment)
 
 You can follow the steps below to install the Compliance Engine. 
 
 ### Requirements
 1. Define an AWS Account to be the central location for the engine (Compliance Account).
-2. Define the AWS Accounts to be verified by the engine (Application Accounts).
+2. Define the AWS Accounts to be verified by the engine (Application Accounts). Note: the Compliance Account can be verified to.
 
 ### In the Compliance Account
-1. Deploy compliance-account-initial-setup.yaml in your centralized account. Change the region parameter, if required.
+1. Deploy compliance-account-initial-setup.yaml in your centralized account. Change the MainRegion parameter to match the region where you are deploying this template, if required.
 2. Zip the 2 directories "rules/" and "rulesets-built/" into "ruleset.zip", including the directories themselves.
 3. Copy the "ruleset.zip" in the source bucket (i.e. by default "compliance-engine-codebuild-source-**account_id**-**region_name**")
-4. Go to CodePipeline, then locate the pipeline named "Compliance-Engine-Pipeline". Wait that it auto-triggers (it might shows "Failed" when you check for the first time). 
+4. Go to CodePipeline, then locate the pipeline named "Compliance-Engine-Pipeline". Wait that it auto-triggers (it might show "Failed" when you check for the first time). 
 
 ### In the Application Accounts
 1. Deploy application-account-initial-setup.yaml.
@@ -42,9 +42,14 @@ You can follow the steps below to install the Compliance Engine.
 1. Verify in the Compliance Account that the CodePipeline pipeline named "Compliance-Engine-Pipeline" is executed succesfully
 2. Verify in the Application Account that the Config Rules are deployed.
 
+## In multiple AWS Region (in a single or multi-account environment)
+
+1. Follow the "Getting Started" in a single AWS Region (above)
+2. Follow the "Add a new Region" in the User Guide (below)
+
 # FAQ
 ### What are the benefits to use of this Compliance engine?
-This project assist you to manage, deploy and operate Config Rules in large AWS enviroment. It completely automate those tasks via a preconfigured pipeline. Additionally, it provides recommended Config Rules to be deployed as Security Baseline, mapped to the CIS Benchmark and PCI (named RuleSets).
+This project assist you to manage, deploy and operate Config Rules in large AWS environment. It completely automate those tasks via a preconfigured pipeline. Additionally, it provides recommended Config Rules to be deployed as Security Baseline, mapped to the CIS Benchmark and PCI (named RuleSets).
 
 ### What is a RuleSet?
 A RuleSet is a collection of Rules. For any AWS accounts, you can decide which RuleSet you want to deploy. For example, you might have a RuleSet for highly confidential accounts, or for high-available accounts or for particular standards (e.g. CIS, PCI or NIST).
@@ -56,10 +61,13 @@ Yes, we describe in the User Guide how to add new rules and new rulesets.
 We expect the engine to work for 100s of accounts, we are yet to hit the limit. The limit for the number of rules per account is about 65 rules, due to CloudFormation template size limits. If interested for higher limits, please raise an issue or contact me: jrault@amazon.com.
 
 ### Does the engine support multi-region?
-No, the engine focuses on multi-account environment as of now. If interested for multi-region, please raise an issue or contact me: jrault@amazon.com.
+Yes, the engine is able to deploy different sets of rules between regions and accounts. By default, it deploys 2 different baselines of rules (avoid to deploy multiple rules with global scope only once, i.e. rules on AWS IAM). If interested to have more options for multi-region, please raise an issue or contact me: jrault@amazon.com.
 
 ### Does the engine use AWS Organizations?
 No, for simplicity of the deployment and due to the multiple dimensions of each account we decided not to use AWS Organizations. If interested for using AWS Organizations, please raise an issue or contact me: jrault@amazon.com.
+
+### I am already using AWS Config today. Can I still use the Engine?
+Yes, the engine is compatible with an existing setup. 
 
 # Overall Design
 
@@ -77,7 +85,7 @@ The engine for compliance-as-code design has the following key elements:
 ## RuleSets
 
 The set of Rules deployed in each Aplication Account depends on:
-- initial deployment of compliance-account-initial-setup.yaml: the parameter "DefaultRuleSet" in the CloudFormation template represents the default RuleSet to be deploy in any Application Accounts, not registered in account_list.json
+- initial deployment of compliance-account-initial-setup.yaml: the parameter "DefaultRuleSet" in the CloudFormation template represents the default RuleSet to be deployed in any Application Accounts (main Region), not registered in account_list.json. For other regions (not the main Region), the parameter "DefaultRuleSetOtherRegions" in the CloudFormation template represents the default RuleSet to be deployed.
 - account_list.json (optional): this file includes the metadata of the accounts and their classifications (via tags)
 - rules/RULE_NAME/parameters.json: those files are included in each rule folder. Those rule metadata are matched with account metadata to deploy the proper Ruleset in each account.
 
@@ -113,7 +121,16 @@ To add a resource in the whitelist:
 
 Note: the resource will still be shown non-compliant in the AWS console of Config Rules. 
 
-## Deploy rules differently depending of AWS Accounts
+## Add a new Region
+
+1. In the Compliance Account, update compliance-account-initial-setup.yaml adding the region in the OtherActiveRegions parameter. You can add several regions.
+2. In the Compliance Account, deploy (in the additional region) the CloudFormation: compliance-account-initial-setup.yaml. No change is required in your original parameters.
+2. Run the pipeline in the main region. It deploys the supporting infrastructure (including buckets and lambdas) in the other region of your Compliance Account.
+3. In the Application Account, deploy (in the additional region) the CloudFormation: application-account-initial-setup.yaml. No change is required in your original parameters.
+
+## Deploy Rules differently depending of AWS Accounts (in a single Region scenario)
+
+This is an advanced scenario, where you want to deploy more than the default baseline. In this scenario, you can chose precisely which rule get deployed in which account(s) in the main Region.
 
 ### Add an Account list
 1. Create an account_list.json, following the format:
@@ -133,12 +150,43 @@ Note: the resource will still be shown non-compliant in the AWS console of Confi
 ### Create the link between Account and Rules
 The engine matches the Tags in the account_list.json with the Tags in the parameters.json of the Rules. When a match is detected, the Rule is deployed in the target account.
 
+## Deploy rules differently depending of AWS Accounts and Regions (in a multiple Regions scenario)
+
+This is an advanced scenario, where you want to deploy more than 2 different regional baselines. In this scenario, you can chose precisely which rule get deployed in which account(s) and in which region(s).
+
+### Add an Account list
+1. Create an account_list.json, following the format (notice the "Region" key):
+```
+{
+	"AllAccounts": [{
+		"Accountname": "Test Account 1",
+		"AccountID": "123456789012",
+		"OwnerEmail": ["admin1@domain.com"],
+		"RootEmail" : "root1@domain.com",
+        "Region": "us-west-1",
+        "Tags": ["baseline", "confidentiality:high"]
+	}, {
+		"Accountname": "Test Account 1",
+		"AccountID": "123456789012",
+		"OwnerEmail": ["admin1@domain.com"],
+		"RootEmail" : "root1@domain.com",
+        "Region": "ap-southeast-1",
+        "Tags": ["otherregionsbaseline", "confidentiality:high"]
+	}]
+}
+```
+2. Update the compliance-account-initial-setup with the account list location
+
+### Create the link between Account and Rules
+The engine matches the Tags in the account_list.json with the Tags in the parameters.json of the Rules. When a match is detected, the Rule is deployed in the target region of the account.
+
 ## Add a new Config Rule in a RuleSet
 
 ### Add a custom Rule to a RuleSet
 1. Create the rule with the RDK (https://github.com/awslabs/aws-config-rdk)
 2. Copy the entire RDK rule *folder* into the ./rules/ (including the 2 python files (code and test) and the parameters.json)
-3. Use the RDK feature for "RuleSets" to add the rules to the appropriate RuleSet. By default, no RuleSet is configured. 
+3. Use the RDK feature for "RuleSets" to add the rules to the appropriate RuleSet. By default, no RuleSet is configured. If you don't use the *account_list*.json, tag the rule with the value of the parameter "DefaultRuleSet" (the one in the CloudFormation template) to deploy in the main region and/or tag the rule with the value of the parameter "DefaultRuleSetOtherRegions" to deploy in the other region(s) (not main).
+
 4. Add it into the "ruleset.zip" (see initial deployment section for details)
 5. Run the CodePipeline pipeline named "Compliance-Engine-Pipeline"
 
