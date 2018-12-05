@@ -10,6 +10,7 @@
 # the specific language governing permissions and limitations under the License.
 
 import json
+import os
 import datetime
 import time
 import boto3
@@ -90,10 +91,12 @@ def evaluate_compliance(event, context, configuration_item, valid_rule_parameter
         s3_compliance = get_client_from_role('s3', role_arn_codepipeline)
         empty_json = s3_compliance.put_object(Bucket=TEMPLATE_BUCKET, Key=json_name)
 
-        # Trigger the pipeline to deploy the default template
-        cp_compliance = get_client_from_role('codepipeline', role_arn_codepipeline)
+        # Trigger the pipeline to deploy the default template.
+        try:
+            cp_compliance = get_client_from_role('codepipeline', role_arn_codepipeline, os.environ['MainRegion'])
+        except:
+            cp_compliance = get_client_from_role('codepipeline', role_arn_codepipeline)
         exec_pipeline = cp_compliance.start_pipeline_execution(name=CODEPIPELINE_NAME)
-
         return build_evaluation(invoking_account_id, "NON_COMPLIANT", event, annotation="Unable to load most recent template from S3. Auto-deployment has been triggered.")
 
     #Get current Config Rule state and configuration from invoking account.
@@ -149,7 +152,11 @@ def evaluate_compliance(event, context, configuration_item, valid_rule_parameter
                 return build_evaluation(invoking_account_id, "NON_COMPLIANT", event, annotation="The rule ("+resource["Properties"]["ConfigRuleName"]+") is not deployed.")
 
     #If we've gotten to the end of the template and everything looks good, we can record the results then return a COMPLIANT result.
-    kinesis_client = get_client_from_role('firehose', role_arn_codepipeline)
+    try:
+        kinesis_client = get_client_from_role('firehose', role_arn_codepipeline, os.environ['MainRegion'])
+    except:
+        kinesis_client = get_client_from_role('firehose', role_arn_codepipeline)
+    
     for rule in template_rules_detail:
         rule_evaluations = get_all_compliance_evaluations(rule["ConfigRuleName"])
         time.sleep(1) # To avoid throttling
@@ -206,11 +213,17 @@ def get_all_rules():
             break
     return all_rules
 
-def get_client_from_role(service, role_arn):
+def get_client_from_role(service, role_arn, region=None):
     credentials = get_assume_role_credentials(role_arn)
-    return boto3.client(service, aws_access_key_id=credentials['AccessKeyId'],
+    if not region:
+        return boto3.client(service, aws_access_key_id=credentials['AccessKeyId'],
                         aws_secret_access_key=credentials['SecretAccessKey'],
                         aws_session_token=credentials['SessionToken']
+                       )
+    return boto3.client(service, aws_access_key_id=credentials['AccessKeyId'],
+                        aws_secret_access_key=credentials['SecretAccessKey'],
+                        aws_session_token=credentials['SessionToken'],
+                        region_name=region
                        )
 
 def evaluate_parameters(rule_parameters):
