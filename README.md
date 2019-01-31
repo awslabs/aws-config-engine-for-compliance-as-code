@@ -111,15 +111,19 @@ This Cloudformation does the following:
 
 After few minutes, all the Config Rules defined as "baseline" (configurable) will be deployed in this new Application Account.
 
-## Add a whitelisted resource from a particular Rule
+## Add a whitelisted/exception resource from a particular Rule
 
 Certain resources may have a business need to not follow a particular rule. You can whitelist a resouce from being NON_COMPLIANT in the datalake, where you can query the compliance data. The resource will be then be noted as COMPLIANT, and the flag "WhitelistedComplianceType" will be set to "True" for traceability.
 
 To add a resource in the whitelist:
+
 1. Update the file ./rulesets-build/compliance-whitelist.json (for model, there are dummy examples).
 2. Ensure that the location of the whitelist is correct in the code ./rulesets-build/etl_evaluations.py
+3. Ensure the WhitelistLocation parameter in compliance-account-initial-setup.yaml is correct
 
 Note: the resource will still be shown non-compliant in the AWS console of Config Rules. 
+
+Note 2: certain Rules might have a whitelist/exception in the parameters.json, but only for custom Config rules.
 
 ## Add a new Region
 
