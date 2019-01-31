@@ -1,0 +1,26 @@
+{
+	"Whitelist": [{
+			"RuleARN": "arn:aws:config:REGION:ACCOUNT_1:config-rule/config-rule-UUID_OF_THE_RULE_1",
+			"WhitelistedResources": [{
+					"ResourceIds": [
+						"RESOURCE_ID"
+					],
+					"ApprovalTicket": "OPTIONAL_FIELD",
+					"ValidUntil": "2019-06-01"
+				}
+			]
+		}, {
+			"RuleARN": "arn:aws:config:REGION:ACCOUNT_2:config-rule/config-rule-UUID_OF_THE_RULE_2",
+			"WhitelistedResources": [{
+					"ResourceIds": [
+						"RESOURCE_ID_1",
+                        "RESOURCE_ID_2",
+                        "RESOURCE_ID_3"
+					],
+					"ApprovalTicket": "OPTIONAL_LINK_OR_REFERENCE_NUMBER",
+					"ValidUntil": "2019-06-01"
+				}
+			]
+		}],
+	"ProcessToWhitelist": "OPTIONAL_LINK_TO_PROCESS"
+}
