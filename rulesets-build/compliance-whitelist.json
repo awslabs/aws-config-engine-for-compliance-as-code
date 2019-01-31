@@ -22,6 +22,5 @@
 				}
 			]
 		}],
-	],
 	"ProcessToWhitelist": "OPTIONAL_LINK_TO_PROCESS"
 }
