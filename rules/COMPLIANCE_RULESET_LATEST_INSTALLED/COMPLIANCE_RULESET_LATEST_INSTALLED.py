@@ -66,6 +66,7 @@ def evaluate_compliance(event, context, configuration_item, valid_rule_parameter
     ###############################
     compliance_account_id = context.invoked_function_arn.split(":")[4]
     compliance_account_region = context.invoked_function_arn.split(":")[3]
+    compliance_account_partition = context.invoked_function_arn.split(":")[1]
 
     TEMPLATE_BUCKET = "-".join([BUCKET_PREFIX, compliance_account_id, compliance_account_region])
     invoking_account_id = event["accountId"]
@@ -136,7 +137,7 @@ def evaluate_compliance(event, context, configuration_item, valid_rule_parameter
                             if resource["Properties"]["Source"]["SourceDetails"] != rule["Source"]["SourceDetails"]:
                                 return build_evaluation(invoking_account_id, "NON_COMPLIANT", event, annotation="The rule ("+rule["ConfigRuleName"]+") has an incorrect 'Source' configuration.")
                         if 'Fn::Sub' in resource["Properties"]["Source"]['SourceIdentifier']:
-                            resource_lambda = resource["Properties"]["Source"]['SourceIdentifier']['Fn::Sub'].replace('${AWS::Region}', compliance_account_region).replace('${LambdaAccountId}', compliance_account_id)
+                            resource_lambda = resource["Properties"]["Source"]['SourceIdentifier']['Fn::Sub'].replace('${AWS::Partition}', compliance_account_partition).replace('${AWS::Region}', compliance_account_region).replace('${LambdaAccountId}', compliance_account_id)
                         else:
                             resource_lambda = resource["Properties"]["Source"]['SourceIdentifier']
 
