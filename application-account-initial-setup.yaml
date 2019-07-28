@@ -30,6 +30,7 @@ Metadata:
           default: (Advanced User Only) Deployment options
         Parameters:
          - DeployAWSConfig
+         - ForceDeploymentRoleInMainRegionOnly
          - RuleFrequency
          - LambdaFunctionName
          - EngineComplianceRule
@@ -100,12 +101,20 @@ Parameters:
       - true
       - false
     Type: String
+  ForceDeploymentRoleInMainRegionOnly:
+    Description: Set to "force" to deploy the ConfigAndComplianceAuditRoleName. This options only works in the main Region.
+    Default: default
+    AllowedValues:
+      - default
+      - force
+    Type: String
 
 Conditions:
   IsMainRegion: !Equals [ !Ref 'AWS::Region', !Ref MainRegion ]
   NotMainRegion: !Not [!Equals [!Ref 'AWS::Region', !Ref MainRegion ]]
   SetConfig: !Equals [ !Ref DeployAWSConfig, 'true']
   NoSetConfig: !Equals [ !Ref DeployAWSConfig, 'false']
+  ForceDeployRole: !Equals [ !Ref ForceDeploymentRoleInMainRegionOnly, 'force']
   SetConfigMain: !And
       - !Condition IsMainRegion
       - !Condition SetConfig
@@ -118,7 +127,13 @@ Conditions:
   NoSetConfigNotMain: !And
       - !Condition NotMainRegion
       - !Condition NoSetConfig
-
+  ForceDeployRoleMain: !And
+      - !Condition IsMainRegion
+      - !Condition ForceDeployRole 
+  DeployRole: !Or
+      - !Condition SetConfigMain
+      - !Condition ForceDeployRoleMain
+      
 Resources:
   MainConfigurationRecorder:
     Condition: SetConfigMain
@@ -167,7 +182,7 @@ Resources:
       AuthorizedAwsRegion: !Ref 'AWS::Region'
 
   AWSConfigAndComplianceRole:
-    Condition: SetConfigMain
+    Condition: DeployRole
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
