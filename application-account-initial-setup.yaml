@@ -46,7 +46,7 @@ Parameters:
   ComplianceAccountId:
     ConstraintDescription: 12 digits, no dashes
     Description: Account ID of the Compliance Account. The compliance-as-code engine must be installed in this account first.
-    Default: 112233445566
+    Default: "112233445566"
     MaxLength: 12
     MinLength: 12
     Type: String
@@ -205,7 +205,7 @@ Resources:
       RoleName: !Ref ConfigAndComplianceAuditRoleName
 
   ConfigS3WritePolicy:
-    Condition: SetConfigMain
+    Condition: DeployRole
     Type: 'AWS::IAM::Policy'
     Properties:
       Roles:
@@ -223,12 +223,12 @@ Resources:
           Resource:
           - !Join [ "", [ "arn:aws:s3:::", !Ref CentralizedS3BucketConfigFullName, "/AWSLogs/", !Ref 'AWS::AccountId', "/*"] ]
           Sid: !Join ["", ["ConfigS3Write", !Ref 'AWS::AccountId'] ]
-        Version: 2012-10-17
+        Version: "2012-10-17"
     DependsOn:
     - AWSConfigAndComplianceRole
 
   ConfigDeployPolicy:
-    Condition: SetConfigMain
+    Condition: DeployRole
     Type: 'AWS::IAM::Policy'
     Properties:
       Roles:
@@ -251,7 +251,7 @@ Resources:
           Effect: Allow
           Resource: "*"
           Sid: !Join ["", ["ConfigAccess", !Ref 'AWS::AccountId'] ]
-        Version: 2012-10-17
+        Version: "2012-10-17"
     DependsOn:
     - AWSConfigAndComplianceRole
 
