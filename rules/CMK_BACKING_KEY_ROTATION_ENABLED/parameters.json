@@ -1,13 +1,13 @@
 {
   "Version": "1.0",
   "Parameters": {
-    "RuleName": "RDS_SNAPSHOTS_PUBLIC_PROHIBITED",
+    "RuleName": "CMK_BACKING_KEY_ROTATION_ENABLED",
     "SourceRuntime": null,
     "CodeKey": null,
     "InputParameters": "{}",
     "OptionalParameters": "{}",
-    "SourceEvents": "AWS::RDS::DBSnapshot",
-    "SourceIdentifier": "RDS_SNAPSHOTS_PUBLIC_PROHIBITED"
+    "SourcePeriodic": "TwentyFour_Hours",
+    "SourceIdentifier": "CMK_BACKING_KEY_ROTATION_ENABLED"
   },
   "Tags": "[]"
 }

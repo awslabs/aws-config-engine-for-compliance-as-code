@@ -1,72 +1,68 @@
+#
+# This file made available under CC0 1.0 Universal (https://creativecommons.org/publicdomain/zero/1.0/legalcode)
+#
+# Created with the Rule Development Kit: https://github.com/awslabs/aws-config-rdk
+# Can be used stand-alone or with the Rule Compliance Engine: https://github.com/awslabs/aws-config-engine-for-compliance-as-code
+#
 '''
 #####################################
 ##           Gherkin               ##
 #####################################
 
 Rule Name:
-  iam-user-mfa-enabled
+  internet-gateway-authorized-only
 
 Description:
-  Checks that IAM users have MFA enabled.
+  Check whether attached IGWs are attached to an authorized list of VPCs.
 
 Trigger:
-  Periodic
+  Configuration Change on AWS::EC2::InternetGateway
 
-Resource Type to report on:
-  AWS::IAM::User
+Reports on:
+  AWS::EC2::InternetGateway
 
-Rule Parameters:
-  | ------------------- | --------- | -------------------------------------------------------- |
-  | Parameter Name      | Type      | Description                                              |
-  | ------------------- | --------- | -------------------------------------------------------- |
-  | WhitelistedUserList | Optional  | Represents the IAM users which are exempt of having MFA  |
-  |                     |           | List all the UniqueID separated by a comma               |
-  |                     |           | Constraint: each UniqueID must begins with AIDA          |
-  | ------------------- | --------- | -------------------------------------------------------- |
+Parameters:
+  | ----------------------|-----------|-------------------------------------------------|
+  | Parameter Name        | Type      | Description                                     |
+  | ----------------------|-----------|-------------------------------------------------|
+  | AuthorizedVpcIds      | Optional  | List of the authorized VPC Ids to have an IGW   |
+  |                       |           | attached, separated by comma (,).               |
+  | ----------------------|-----------|-------------------------------------------------|
 
 Feature:
-  In order to: enforce strong authentication
-  As: a Security Officer
-  I want: To ensure that IAM users have MFA configured, except if whitelisted.
+    In order to: limit access to the internet to specific VPCs
+             As: a Security Officer
+         I want: to ensure that all attached IGWs are authorized.
 
 Scenarios:
+    Scenario 1:
+      Given: the AuthorizedVpcIds list items are not starting with "vpc-"
+       Then: return an Error
 
-  Scenario 1:
-  Given: WhitelistedUserList is configured
-    And: A user ID listed in WhitelistedUserList is not valid
-    Then: Return an error
+    Scenario 2:
+      Given: the IGW is not attached to a VPC
+       Then: return COMPLIANT
 
-  Scenario 2:
-  Given: WhitelistedUserList is configured correctly
-    And: The IAM User's UniqueID is listed in WhitelistedUserList
-    Then: Return COMPLIANT
+    Scenario 3:
+      Given: the IGW is attached to a VPC
+        And: the AuthorizedVpcIds parameter is not configured
+       Then: return NON_COMPLIANT
 
-  Scenario 3:
-  Given: WhitelistedUserList is configured correctly
-    And: The IAM User UniqueID is not listed in WhitelistedUserList
-    And: An MFA is attached to the IAM User
-    Then: Return COMPLIANT
+    Scenario 4:
+      Given: the IGW is attached to a VPC
+        And: the AuthorizedVpcIds parameter is configured and valid
+        And: the VPC Id where the IGW is attached is not in the AuthorizedVpcIds list
+       Then: return NON_COMPLIANT with an annotation "This IGW is not attached to an authorized VPC."
 
-  Scenario 4:
-  Given: WhitelistedUserList is configured correctly
-    And: The IAM User UniqueID is not listed in WhitelistedUserList
-    And: No MFA is attached to the IAM User
-    Then: Return NON_COMPLIANT
-
-  Scenario 5:
-  Given: WhitelistedUserList is not configured
-    And: An MFA is attached to the IAM User
-   Then: Return COMPLIANT
-
-  Scenario 6:
-  Given: WhitelistedUserList is not configured
-    And: One MFA is not attached to the IAM User
-    Then: Return NON_COMPLIANT
+    Scenario 5:
+      Given: the IGW is attached to a VPC
+        And: the AuthorizedVpcIds parameter is configured and valid
+        And: the VPC Id where the IGW is attached is in the AuthorizedVpcIds list
+       Then: return COMPLIANT
 '''
 
 import json
 import datetime
-import re
 import boto3
 import botocore
 
@@ -75,64 +71,25 @@ import botocore
 ##############
 
 # Define the default resource to report to Config Rules
-DEFAULT_RESOURCE_TYPE = 'AWS::IAM::User'
+DEFAULT_RESOURCE_TYPE = "AWS::EC2::InternetGateway"
 
 # Set to True to get the lambda to assume the Role attached on the Config Service (useful for cross-account).
-ASSUME_ROLE_MODE = True
+ASSUME_ROLE_MODE = False
 
 #############
 # Main Code #
 #############
 
 def evaluate_compliance(event, configuration_item, valid_rule_parameters):
-    """Form the evaluation(s) to be return to Config Rules
 
-    Return either:
-    None -- when no result needs to be displayed
-    a string -- either COMPLIANT, NON_COMPLIANT or NOT_APPLICABLE
-    a dictionary -- the evaluation dictionary, usually built by build_evaluation_from_config_item()
-    a list of dictionary -- a list of evaluation dictionary , usually built by build_evaluation()
+    vpc_attachment = configuration_item['configuration']['attachments']
+    if not vpc_attachment:
+        return 'COMPLIANT'
 
-    Keyword arguments:
-    event -- the event variable given in the lambda handler
-    configuration_item -- the configurationItem dictionary in the invokingEvent
-    valid_rule_parameters -- the output of the evaluate_parameters() representing validated parameters of the Config Rule
-
-    Advanced Notes:
-    1 -- if a resource is deleted and generate a configuration change with ResourceDeleted status, the Boilerplate code will put a NOT_APPLICABLE on this resource automatically.
-    2 -- if a None or a list of dictionary is returned, the old evaluation(s) which are not returned in the new evaluation list are returned as NOT_APPLICABLE by the Boilerplate code
-    3 -- if None or an empty string, list or dict is returned, the Boilerplate code will put a "shadow" evaluation to feedback that the evaluation took place properly
-    """
-    iam_client = get_client('iam', event)
-    all_users_list = get_all_users(iam_client)
-
-    evaluations = []
-    for user in all_users_list:
-        if user['UserId'] in valid_rule_parameters:
-            evaluations.append(build_evaluation(user['UserId'], 'COMPLIANT', event, annotation='User is whitelisted'))
-            continue
-
-        mfa_device_details = iam_client.list_mfa_devices(UserName=user['UserName'])
-        if mfa_device_details['MFADevices']:
-            evaluations.append(build_evaluation(user['UserId'], 'COMPLIANT', event))
-            continue
-
-        evaluations.append(build_evaluation(user['UserId'], 'NON_COMPLIANT', event, annotation='No MFA Device detected'))
-
-    return evaluations
-
-def get_all_users(client):
-    list_to_return = []
-    list = client.list_users()
-    while True:
-        for user in list['Users']:
-            list_to_return.append(user)
-        if 'Marker' in list:
-            next_marker = list['Marker']
-            list = client.list_users(Marker=next_marker)
-        else:
-            break
-    return list_to_return
+    vpc_id = vpc_attachment[0]['vpcId']
+    if vpc_id in valid_rule_parameters:
+        return 'COMPLIANT'
+    return build_evaluation_from_config_item(configuration_item, 'NON_COMPLIANT', annotation="This IGW is not attached to an authorized VPC.")
 
 def evaluate_parameters(rule_parameters):
     """Evaluate the rule parameters dictionary validity. Raise a ValueError for invalid parameters.
@@ -142,20 +99,16 @@ def evaluate_parameters(rule_parameters):
 
     Keyword arguments:
     rule_parameters -- the Key/Value dictionary of the Config Rules parameters
-    """
-    if not rule_parameters:
-        return {}
-        
-    if not 'WhitelistedUserList' in rule_parameters:
-        return {}
-        
-    whitelisted_users = rule_parameters['WhitelistedUserList'].replace(' ', '').split(',')
-    valid_whitelist = []
-    for whitelisted_user in whitelisted_users:
-        if not re.match("^AIDA[A-Z0-9]+$", whitelisted_user):
-            raise ValueError('WhitelistedUser: '+whitelisted_user)
-        valid_whitelist.append(whitelisted_user)
-    return valid_whitelist
+    """   
+    if rule_parameters:
+        authorized_vpc_ids = rule_parameters['AuthorizedVpcIds'].split(',')
+        for i,authorized_vpc_id in enumerate(authorized_vpc_ids):
+            authorized_vpc_ids[i] = authorized_vpc_id.strip()
+        for authorized_vpc_id in authorized_vpc_ids:
+            if not authorized_vpc_id.startswith('vpc-'):
+                raise ValueError('The parameter ({}) does not start with vpc-'.format(authorized_vpc_id))
+        rule_parameters = authorized_vpc_ids
+    return rule_parameters
 
 ####################
 # Helper Functions #
@@ -168,8 +121,8 @@ def build_parameters_value_error_response(ex):
     Keyword arguments:
     ex -- Exception text
     """
-    return  build_error_response(internalErrorMessage="Customer error while parsing input parameters",
-                                 internalErrorDetails="Parameter value is invalid",
+    return  build_error_response(internalErrorMessage="Parameter value is invalid",
+                                 internalErrorDetails="An ValueError was raised during the validation of the Parameter value",
                                  customerErrorCode="InvalidParameterValueException",
                                  customerErrorMessage=str(ex))
 
@@ -305,6 +258,7 @@ def get_assume_role_credentials(role_arn):
         return assume_role_response['Credentials']
     except botocore.exceptions.ClientError as ex:
         # Scrub error message for any internal account info leaks
+        print(str(ex))
         if 'AccessDenied' in ex.response['Error']['Code']:
             ex.response['Error']['Message'] = "AWS Config does not have permission to assume the IAM role."
         else:
@@ -352,7 +306,6 @@ def clean_up_old_evaluations(latest_evaluations, event):
 def lambda_handler(event, context):
 
     global AWS_CONFIG_CLIENT
-    AWS_CONFIG_CLIENT = get_client('config', event)
 
     #print(event)
     check_defined(event, 'event')
@@ -367,14 +320,15 @@ def lambda_handler(event, context):
         return build_parameters_value_error_response(ex)
 
     try:
-        configuration_item = get_configuration_item(invoking_event)
+        AWS_CONFIG_CLIENT = get_client('config', event)
         if invoking_event['messageType'] in ['ConfigurationItemChangeNotification', 'ScheduledNotification', 'OversizedConfigurationItemChangeNotification']:
+            configuration_item = get_configuration_item(invoking_event)
             if is_applicable(configuration_item, event):
                 compliance_result = evaluate_compliance(event, configuration_item, valid_rule_parameters)
             else:
                 compliance_result = "NOT_APPLICABLE"
         else:
-            return {'internalErrorMessage': 'Unexpected message type ' + str(invoking_event)}
+            return build_internal_error_response('Unexpected message type', str(invoking_event))
     except botocore.exceptions.ClientError as ex:
         if is_internal_error(ex):
             return build_internal_error_response("Unexpected error while completing API request", str(ex))
@@ -389,7 +343,10 @@ def lambda_handler(event, context):
         latest_evaluations.append(build_evaluation(event['accountId'], "NOT_APPLICABLE", event, resource_type='AWS::::Account'))
         evaluations = clean_up_old_evaluations(latest_evaluations, event)
     elif isinstance(compliance_result, str):
-        evaluations.append(build_evaluation_from_config_item(configuration_item, compliance_result))
+        if configuration_item:
+            evaluations.append(build_evaluation_from_config_item(configuration_item, compliance_result))
+        else:
+            evaluations.append(build_evaluation(event['accountId'], compliance_result, event, resource_type=DEFAULT_RESOURCE_TYPE))
     elif isinstance(compliance_result, list):
         for evaluation in compliance_result:
             missing_fields = False

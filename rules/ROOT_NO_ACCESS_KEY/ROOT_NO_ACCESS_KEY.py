@@ -1,3 +1,9 @@
+#
+# This file made available under CC0 1.0 Universal (https://creativecommons.org/publicdomain/zero/1.0/legalcode)
+#
+# Created with the Rule Development Kit: https://github.com/awslabs/aws-config-rdk
+# Can be used stand-alone or with the Rule Compliance Engine: https://github.com/awslabs/aws-config-engine-for-compliance-as-code
+#
 '''
 ####################################
 #           Gherkin               ##
@@ -52,7 +58,7 @@ import botocore
 DEFAULT_RESOURCE_TYPE = 'AWS::::Account'
 
 # Set to True to get the lambda to assume the Role attached on the Config Service (useful for cross-account).
-ASSUME_ROLE_MODE = True
+ASSUME_ROLE_MODE = False
 
 #############
 # Main Code #
