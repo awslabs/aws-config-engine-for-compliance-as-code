@@ -7,7 +7,12 @@
     "InputParameters": "{}",
     "OptionalParameters": "{}",
     "SourcePeriodic": "TwentyFour_Hours",
-    "SourceIdentifier": "CMK_BACKING_KEY_ROTATION_ENABLED"
+    "SourceIdentifier": "CMK_BACKING_KEY_ROTATION_ENABLED",
+    "RuleSets": [
+      "confidentiality:high",
+      "confidentiality:medium",
+      "rulecriticity:medium"
+    ]
   },
   "Tags": "[]"
 }

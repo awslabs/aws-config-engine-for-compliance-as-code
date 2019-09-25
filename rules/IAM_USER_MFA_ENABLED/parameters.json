@@ -7,7 +7,11 @@
     "InputParameters": "{}",
     "OptionalParameters": "{}",
     "SourcePeriodic": "TwentyFour_Hours",
-    "SourceIdentifier": "IAM_USER_MFA_ENABLED"
+    "SourceIdentifier": "IAM_USER_MFA_ENABLED",
+    "RuleSets": [
+      "baseline",
+      "rulecriticity:high"
+]
   },
   "Tags": "[]"
 }

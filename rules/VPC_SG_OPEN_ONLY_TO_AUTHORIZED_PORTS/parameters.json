@@ -7,7 +7,12 @@
     "InputParameters": "{}",
     "OptionalParameters": "{\"authorizedTcpPorts\": \"443\", \"authorizedUdpPorts\": \"\"}",
     "SourceEvents": "AWS::EC2::SecurityGroup",
-    "SourceIdentifier": "VPC_SG_OPEN_ONLY_TO_AUTHORIZED_PORTS"
+    "SourceIdentifier": "VPC_SG_OPEN_ONLY_TO_AUTHORIZED_PORTS",
+    "RuleSets": [
+      "baseline",
+      "rulecriticity:high",
+      "otherregionsbaseline"
+    ]
   },
   "Tags": "[]"
 }
