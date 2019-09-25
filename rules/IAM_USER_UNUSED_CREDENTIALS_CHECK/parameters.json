@@ -1,16 +1,16 @@
 {
   "Version": "1.0",
   "Parameters": {
-    "RuleName": "ROOT_ACCOUNT_MFA_ENABLED",
+    "RuleName": "IAM_USER_UNUSED_CREDENTIALS_CHECK",
     "SourceRuntime": null,
     "CodeKey": null,
-    "InputParameters": "{}",
+    "InputParameters": "{\"maxCredentialUsageAge\": \"90\"}",
     "OptionalParameters": "{}",
     "SourcePeriodic": "TwentyFour_Hours",
-    "SourceIdentifier": "ROOT_ACCOUNT_MFA_ENABLED",
+    "SourceIdentifier": "IAM_USER_UNUSED_CREDENTIALS_CHECK",
     "RuleSets": [
       "baseline",
-      "rulecriticity:critical"
+      "rulecriticity:medium"
     ]
   },
   "Tags": "[]"

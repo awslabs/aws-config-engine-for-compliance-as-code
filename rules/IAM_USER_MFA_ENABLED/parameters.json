@@ -2,14 +2,16 @@
   "Version": "1.0",
   "Parameters": {
     "RuleName": "IAM_USER_MFA_ENABLED",
-    "SourceRuntime": "python3.6",
-    "CodeKey": "IAM_USER_MFA_ENABLED.zip",
+    "SourceRuntime": null,
+    "CodeKey": null,
     "InputParameters": "{}",
-    "OptionalParameters": "{\"WhitelistedUserList\": \"\"}",
+    "OptionalParameters": "{}",
     "SourcePeriodic": "TwentyFour_Hours",
+    "SourceIdentifier": "IAM_USER_MFA_ENABLED",
     "RuleSets": [
       "baseline",
       "rulecriticity:high"
-    ]
-  }
+]
+  },
+  "Tags": "[]"
 }

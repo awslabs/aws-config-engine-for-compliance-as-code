@@ -1,18 +1,18 @@
 {
   "Version": "1.0",
   "Parameters": {
-    "RuleName": "INCOMING_SSH_DISABLED",
+    "RuleName": "VPC_SG_OPEN_ONLY_TO_AUTHORIZED_PORTS",
     "SourceRuntime": null,
     "CodeKey": null,
     "InputParameters": "{}",
-    "OptionalParameters": "{}",
+    "OptionalParameters": "{\"authorizedTcpPorts\": \"443\", \"authorizedUdpPorts\": \"\"}",
     "SourceEvents": "AWS::EC2::SecurityGroup",
-    "SourceIdentifier": "INCOMING_SSH_DISABLED",
+    "SourceIdentifier": "VPC_SG_OPEN_ONLY_TO_AUTHORIZED_PORTS",
     "RuleSets": [
       "baseline",
-      "pci",
       "rulecriticity:high",
       "otherregionsbaseline"
     ]
-  }
+  },
+  "Tags": "[]"
 }
