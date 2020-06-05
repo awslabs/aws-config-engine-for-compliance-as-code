@@ -1,8 +1,9 @@
+# NOTICE
+**This project is not maintained any more: please reachout to rdk-maintainers@amazon.com for any questions.**
+
 # Engine for Compliance-as-code
 
 This package is a collaborative project to deploy and operate Config Rules at scale in an multi-account environment. 
-
-Please give feedback or bug report by email: jrault@amazon.com
 
 ## Objectives of the package
 1. Deploy automatically and operate configurable sets of AWS Config Rules in a multi-account environment.
@@ -58,13 +59,13 @@ A RuleSet is a collection of Rules. For any AWS accounts, you can decide which R
 Yes, we describe in the User Guide how to add new rules and new rulesets.
 
 ### What are the limits to expect from the Engine?
-We expect the engine to work for 100s of accounts, we are yet to hit the limit. The limit for the number of rules per account is about 65 rules, due to CloudFormation template size limits. If interested for higher limits, please raise an issue or contact me: jrault@amazon.com.
+We expect the engine to work for 100s of accounts, we are yet to hit the limit. The limit for the number of rules per account is about 65 rules, due to CloudFormation template size limits.
 
 ### Does the engine support multi-region?
-Yes, the engine is able to deploy different sets of rules between regions and accounts. By default, it deploys 2 different baselines of rules (avoid to deploy multiple rules with global scope only once, i.e. rules on AWS IAM). If interested to have more options for multi-region, please raise an issue or contact me: jrault@amazon.com.
+Yes, the engine is able to deploy different sets of rules between regions and accounts. By default, it deploys 2 different baselines of rules (avoid to deploy multiple rules with global scope only once, i.e. rules on AWS IAM).
 
 ### Does the engine use AWS Organizations?
-No, for simplicity of the deployment and due to the multiple dimensions of each account we decided not to use AWS Organizations. If interested for using AWS Organizations, please raise an issue or contact me: jrault@amazon.com.
+No, for simplicity of the deployment and due to the multiple dimensions of each account we decided not to use AWS Organizations. 
 
 ### I am already using AWS Config today. Can I still use the Engine?
 Yes, the engine is compatible with an existing setup. 
@@ -268,7 +269,7 @@ Evolution of Compliance Status (last 50 days): Vertical stacked 100% bar chart -
 Top 3 Account Non Compliant (weighted): Horizontal stacked bar chart - Y axis: AccountID , Value: DurationClassCriti (Sum), Group/Color: ClassCriti - Filter: ClassCriti >= 8
 
 # Team
-* Jonathan Rault - Current maintainer
+* Jonathan Rault - Idea, Design, Coding and Feedback
 * Michael Borchert - Design, Coding and Feedback
 
 # License
