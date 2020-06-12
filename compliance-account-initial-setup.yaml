@@ -1,5 +1,5 @@
 #
-# Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2017-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License").
 # You may not use this file except in compliance with the License.
@@ -29,13 +29,26 @@ Metadata:
         Parameters:
          - DefaultRuleSet
          - DefaultRuleSetOtherRegions
-         - AccountListLocation
+         - ApplicationAccountIds
+         - AccountListLocalPath
          - WhitelistLocation
          - CentralizedS3BucketConfig
+         - CodeBuildRulesTemplateProjectName
          - CodebuildSourceS3BucketConfig
          - CodebuildDestinationS3BucketConfig
          - CodePipelineArtifactS3BucketConfig
          - CentralizedS3BucketComplianceEventName
+         - ComplianceEngineCodeBuildRoleName
+         - ComplianceEngineCodePipelineRoleName
+         - ConfigAndComplianceAuditRoleName
+         - ConfigAndComplianceAuditRolePath
+         - ConfigRulesStackName
+         - RuleSetArtifactS3FileName
+         - RDKLambdaRoleName
+         - RdklibLayerName
+         - RulesLambdaVpcConfigLocalPath
+         - LambdaETLName
+         - LambdaRoleETLName
          - DatalakeQueries
          - EngineComplianceRule
 
@@ -79,6 +92,18 @@ Parameters:
     Description: Rule name which review the state of this deployment
     Default: COMPLIANCE_RULESET_LATEST_INSTALLED
     Type: String
+  CodeBuildRulesTemplateProjectName:
+    Description: CodeBuild rules build template project name
+    Default: Compliance-Rule-Template-Build
+    Type: String
+  CodeBuildRulesDeployTemplateProjectName:
+    Description: CodeBuild rules deploy template project name
+    Default: Compliance-Rule-Template-Deploy
+    Type: String
+  CodePipelineComplianceEnginePipelineName:
+    Description: CodePipeline Compliance Engine Pipeline name
+    Default: Compliance-Engine-Pipeline
+    Type: String
   CodebuildSourceS3BucketConfig:
     ConstraintDescription: Enter DNS-compliant prefix
     Description: Bucket prefix from where the source code will be picked up by CodeBuild. The Bucket will be created with a dash, the account ID (12-digit), another dash and the region name appended to the prefix you have entered.
@@ -107,16 +132,64 @@ Parameters:
     MaxLength: 63
     MinLength: 10
     Type: String
+  ComplianceEngineCodeBuildRoleName:
+    Description: Role Name of the Compliance Account CodeBuild Role
+    Default: ComplianceEngine-CodeBuildRole
+    Type: String
+  ComplianceEngineCodePipelineRoleName:
+    Description: Role Name of the Compliance Account CodePipeline Role
+    Default: ComplianceEngine-CodePipelineRole
+    Type: String
+  ConfigAndComplianceAuditRoleName:
+    Description: Role Name of the Compliance Account Cross Account Role
+    Default: AWSConfigAndComplianceAuditRole-DO-NOT-DELETE
+    Type: String
+  ConfigAndComplianceAuditRolePath:
+    Description: Role Path of the Compliance Account Cross Account Role
+    Default: service-role/
+    Type: String
+  ConfigRulesStackName:
+    Description: Stack Name of all the Config Rules that will be generated in each region
+    Default: Compliance-Engine-Benchmark-DO-NOT-DELETE
+    Type: String
+  RuleSetArtifactS3FileName:
+    Description: the S3 key of the ruleset artifact
+    Default: ruleset.zip
+    Type: String
+  RDKLambdaRoleName:
+    Description: IAM role name for all the custom rule lambda functions
+    Default: ComplianceEngine-rdkLambdaRole
+    Type: String
+  RdklibLayerName:
+    Description: Name of RDK Lib Lambda Layer Name
+    Default: compliance-engine-rdklib-layer
+    Type: String
+  LambdaETLName:
+    Description: Default ETL Lambda name in compliance account.
+    Default: ComplianceEngine-ETL
+    Type: String
+  LambdaRoleETLName:
+    Description: Default ETL LambdaRole name in compliance account.
+    Default: ComplianceEngine-LambdaETLRole
+    Type: String
   DefaultRuleSet:
     Description: Default RuleSet name to deploy in AWS accounts.
     Default: baseline
     Type: String
   DefaultRuleSetOtherRegions:
     Description: Default RuleSet name to deploy in non-main regions in AWS accounts, if other regions are used.
-    Default: otherregionsbaseline
+    Default: baseline
     Type: String
-  AccountListLocation:
-    Description: Bucket name and key of the location of your account list (i.e. some-bucket/my_account_list.json) or let it empty in no account list.
+  ApplicationAccountIds:
+    Description: Command seperated application account Ids list (i.e. 111111222222 or 111111222222,222222333333) for aggregated view
+    Default: "111111222222"
+    Type: CommaDelimitedList
+  AccountListLocalPath:
+    Description: Deploy rulesets according to account list with path in rulesets-build/
+    Default: config/account_list.json
+    Type: String
+  RulesLambdaVpcConfigLocalPath:
+    Description: Deploy rules lambda functions within vpc according to vpc config list with path in rulesets-build/ or let it empty for creating lambda functions in AWS
     Default: ""
     Type: String
   WhitelistLocation:
@@ -129,18 +202,16 @@ Parameters:
     AllowedValues:
       - true
       - false
-    Type: String  
+    Type: String
 
 Conditions:
     IsMainRegion: !Equals [ !Ref 'AWS::Region', !Ref MainRegion ]
     NotMainRegion: !Not [ !Condition IsMainRegion ]
-    AccountListLocation: !Not [ !Equals [ "", !Ref AccountListLocation]]
     WhitelistLocation: !Not [ !Equals [ "", !Ref WhitelistLocation]]
     OtherActiveRegions: !Not [ !Equals [ "", !Ref OtherActiveRegions]]
 
 Resources:
-
-# Bucket for RDK
+  # Bucket for RDK
   RDKS3Bucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -148,6 +219,11 @@ Resources:
       Tags:
       - Key: Owner
         Value: Security
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              KMSMasterKeyID: !ImportValue KMS-compliance-engine-key-id
+              SSEAlgorithm: aws:kms
 
 # Bucket for all the logs from Config
   CentralizedS3Bucket:
@@ -162,10 +238,15 @@ Resources:
           - StorageClass: STANDARD_IA
             TransitionInDays: 30
       Tags:
-      - Key: Owner
-        Value: Security
+        - Key: Owner
+          Value: Security
       VersioningConfiguration:
         Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              KMSMasterKeyID: !ImportValue KMS-compliance-engine-key-id
+              SSEAlgorithm: aws:kms
 
   CentralizedS3BucketPolicy:
     Condition: IsMainRegion
@@ -181,7 +262,14 @@ Resources:
           Principal:
             Service: config.amazonaws.com
           Resource: !Join [ "", ["arn:aws:s3:::", !Ref CentralizedS3BucketConfig, "-", !Ref 'AWS::AccountId']]
-          Sid: ConfigAllowGetBucketAcl
+          Sid: AWSConfigBucketPermissionsCheck
+        - Effect: Allow
+          Principal:
+            Service:
+              - config.amazonaws.com
+          Action: 's3:ListBucket'
+          Resource: !Join [ "", ["arn:aws:s3:::", !Ref CentralizedS3BucketConfig, "-", !Ref 'AWS::AccountId']]
+          Sid: AWSConfigBucketExistenceCheck
         - Action: s3:PutObject
           Condition:
             StringEquals:
@@ -190,7 +278,7 @@ Resources:
           Principal:
             Service: config.amazonaws.com
           Resource: !Join [ "", ["arn:aws:s3:::", !Ref CentralizedS3BucketConfig, "-", !Ref 'AWS::AccountId', "/AWSLogs/*"]]
-          Sid: ConfigAllowPutObject
+          Sid: AWSConfigBucketDelivery
 
 # CodeBuild + Pipeline
 
@@ -202,8 +290,8 @@ Resources:
         Location: !Join [ "-", [ !Ref CodePipelineArtifactS3BucketConfig, !Ref 'AWS::AccountId', !Ref 'AWS::Region']]
         Type: S3
       DisableInboundStageTransitions: []
-      Name: Compliance-Engine-Pipeline
-      RoleArn: !Join [ ":", ["arn:aws:iam:", !Ref 'AWS::AccountId', "role/ComplianceEngine-CodePipelineRole"]]
+      Name: !Ref CodePipelineComplianceEnginePipelineName
+      RoleArn: !Join [ "", ["arn:aws:iam::", !Ref 'AWS::AccountId', ":role/", !Ref ComplianceEngineCodePipelineRoleName]]
       Stages:
         - Name: S3Source
           Actions:
@@ -216,7 +304,7 @@ Resources:
               Configuration:
                 S3Bucket: !Join [ "-", [ !Ref CodebuildSourceS3BucketConfig, !Ref 'AWS::AccountId', !Ref 'AWS::Region']]
                 PollForSourceChanges: True
-                S3ObjectKey: ruleset.zip
+                S3ObjectKey: !Ref RuleSetArtifactS3FileName
               OutputArtifacts:
                 - Name: TemplateSource
               RunOrder: 1
@@ -248,22 +336,23 @@ Resources:
               RunOrder: 1
               Configuration:
                 ProjectName: !Ref CodeBuildRuleDeployProject
-    DependsOn: CodePipelineRole
 
   CodeBuildRulesTemplateProject:
     Condition: IsMainRegion
     Type: AWS::CodeBuild::Project
     Properties:
-      ServiceRole: !Join [ ":", ["arn:aws:iam:", !Ref 'AWS::AccountId', "role/ComplianceEngine-CodeBuildRole"]]
+      ServiceRole: !Join [ "", ["arn:aws:iam::", !Ref 'AWS::AccountId', ":role/", !Ref ComplianceEngineCodeBuildRoleName]]
       Artifacts:
         Type: CODEPIPELINE
-      Name: Compliance-Rule-Template-Build
+      Name: !Ref CodeBuildRulesTemplateProjectName
       Description: Build the Config Rules CloudFormation to be deployed
       Environment:
         Type: LINUX_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/python:3.6.5
         EnvironmentVariables:
+         - Name: ACCOUNT_ID
+           Value: !Ref 'AWS::AccountId'
          - Name: OUTPUT_BUCKET
            Value: !Join [ "-", [ !Ref CodebuildDestinationS3BucketConfig, !Ref 'AWS::AccountId', !Ref 'AWS::Region']]
          - Name: OUTPUT_BUCKET_NO_REGION
@@ -273,9 +362,13 @@ Resources:
          - Name: DEFAULT_RULESET_OTHER_REGIONS
            Value: !Ref DefaultRuleSetOtherRegions
          - Name: ACCOUNT_LIST
-           Value: !If [ AccountListLocation, !Ref AccountListLocation, 'none']
+           Value: !Ref AccountListLocalPath
          - Name: OTHER_ACTIVE_REGIONS
            Value: !If [ OtherActiveRegions, !Ref OtherActiveRegions, 'none']
+         - Name: RDKLIB_LAYER_NAME
+           Value: !Ref RdklibLayerName
+         - Name: RULES_LAMBDA_VPC_CONFIG
+           Value: !Ref RulesLambdaVpcConfigLocalPath
          - Name: ENGINE_RULE_NAME
            Value: !Ref EngineComplianceRule
          - Name: DATALAKE_QUERIES_BOOL
@@ -288,23 +381,24 @@ Resources:
            Value: !Ref CentralizedS3BucketConfig
          - Name: COMPLIANCE_EVENT_CENTRAL_BUCKET
            Value: !Ref CentralizedS3BucketComplianceEventName
+         - Name: LAMBDA_ROLE_ARN
+           Value: !Join [ ":", ["arn:aws:iam:", !Ref 'AWS::AccountId', !Join [ "", ["role/rdk/", !Ref RDKLambdaRoleName]]]]
       Source:
         Type: CODEPIPELINE
         BuildSpec: rulesets-build/buildspec_buildtemplates.yaml
       TimeoutInMinutes: 60
     DependsOn:
      - CodebuildDestinationS3Bucket
-     - CodeBuildRole
 
   CodeBuildRuleDeployProject:
     Condition: IsMainRegion
     Type: AWS::CodeBuild::Project
     Properties:
-      ServiceRole: !Join [ ":", ["arn:aws:iam:", !Ref 'AWS::AccountId', "role/ComplianceEngine-CodeBuildRole"]]
+      ServiceRole: !Join [ "", ["arn:aws:iam::", !Ref 'AWS::AccountId', ":role/", !Ref ComplianceEngineCodeBuildRoleName]]
       Artifacts:
         Type: CODEPIPELINE
-      Name: Compliance-Rule-Template-Deploy
-      Description: Deploy the Config Rules CloudFormation to be deployed
+      Name: !Ref CodeBuildRulesDeployTemplateProjectName
+      Description: "Deploy the Config Rules CloudFormation to be deployed "
       Environment:
         Type: LINUX_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
@@ -315,14 +409,19 @@ Resources:
          - Name: OTHER_ACTIVE_REGIONS
            Value: !If [ OtherActiveRegions, !Ref OtherActiveRegions, 'none']
          - Name: ENGINE_RULE_NAME
-           Value: !Ref EngineComplianceRule       
+           Value: !Ref EngineComplianceRule
+         - Name: REMOTE_EXE_ROLE_NAME
+           Value: !Ref ConfigAndComplianceAuditRoleName
+         - Name: REMOTE_EXE_PATH_NAME
+           Value: !Ref ConfigAndComplianceAuditRolePath
+         - Name: RULES_STACK_NAME
+           Value: !Ref ConfigRulesStackName
       Source:
         Type: CODEPIPELINE
         BuildSpec: buildspec_deploytemplates.yaml
       TimeoutInMinutes: 60
     DependsOn:
      - CodebuildDestinationS3Bucket
-     - CodeBuildRole
 
   CodebuildSourceS3Bucket:
     Condition: IsMainRegion
@@ -334,6 +433,11 @@ Resources:
         Value: Security
       VersioningConfiguration:
         Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              KMSMasterKeyID: !ImportValue KMS-compliance-engine-key-id
+              SSEAlgorithm: aws:kms
 
   CodebuildDestinationS3Bucket:
     Type: AWS::S3::Bucket
@@ -344,6 +448,11 @@ Resources:
         Value: Security
       VersioningConfiguration:
         Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              KMSMasterKeyID: !ImportValue KMS-compliance-engine-key-id
+              SSEAlgorithm: aws:kms
 
   CodePipelineBucket:
     Condition: IsMainRegion
@@ -355,170 +464,36 @@ Resources:
         Value: Security
       VersioningConfiguration:
         Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              KMSMasterKeyID: !ImportValue KMS-compliance-engine-key-id
+              SSEAlgorithm: aws:kms
 
-  CodePipelineRole:
-    Condition: IsMainRegion
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: ComplianceEngine-CodePipelineRole
-      AssumeRolePolicyDocument:
-        Statement:
-        - Action: ['sts:AssumeRole']
-          Effect: Allow
-          Principal:
-            Service: [codepipeline.amazonaws.com]
-        - Action: ['sts:AssumeRole']
-          Effect: Allow
-          Principal:
-            AWS: !Ref 'AWS::AccountId'
-        Version: '2012-10-17'
-      Path: /
-      Policies:
-        - PolicyName: CodePipelineAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Action:
-                - 's3:*'
-                - 'cloudformation:*'
-                - 'codebuild:*'
-                - 'iam:PassRole'
-                - 'sns:Publish'
-                - 'cloudwatch:*'
-                - 'logs:*'
-                - 'codecommit:*'
-                - 'config:*'
-                - 'lambda:*'
-                - 'iam:Get*'
-                - 'iam:List*'
-                - 'codepipeline:StartPipelineExecution'
-                Effect: Allow
-                Resource: '*'
+  #Config Aggregator
 
-  CodeBuildRole:
+  ConfigAggregator:
     Condition: IsMainRegion
-    Type: AWS::IAM::Role
+    Type: AWS::Config::ConfigurationAggregator
     Properties:
-      RoleName: ComplianceEngine-CodeBuildRole
-      AssumeRolePolicyDocument:
-        Statement:
-        - Action: ['sts:AssumeRole']
-          Effect: Allow
-          Principal:
-            Service: [codebuild.amazonaws.com]
-        Version: '2012-10-17'
-      Path: /
-      Policies:
-        - PolicyName: CodeBuildAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-            - Sid: STSaccess
-              Action:
-              - sts:AssumeRole
-              - sts:GetCallerIdentity
-              Effect: Allow
-              Resource: "*"
-            - Sid: RdkPermissions
-              Action:
-              - iam:Get*
-              - iam:List*
-              - lambda:AddPermission
-              - lambda:CreateFunction
-              - lambda:CreateEventSourceMapping
-              - lambda:UpdateFunctionConfiguration
-              - lambda:UpdateFunctionCode
-              - lambda:PublishVersion
-              - lambda:Get*
-              - lambda:List*
-              - config:Describe*
-              - config:Put*
-              - config:List*
-              - config:StartConfigurationRecorder
-              - config:Get*
-              - config:StartConfigRulesEvaluation
-              - cloudformation:*
-              - logs:Describe*
-              - logs:FilterLogEvents
-              - logs:GetLogEvents
-              - logs:CreateLogStream
-              - logs:CreateLogGroup
-              - logs:PutLogEvents
-              - s3:List*
-              - s3:CreateBucket
-              - lambda:CreateFunction
-              - lambda:CreateEventSourceMapping
-              - lambda:UpdateFunctionConfiguration
-              - lambda:Get*
-              - lambda:List*
-              Effect: Allow
-              Resource: "*"
-            - Sid: RdkPermissionsLambda
-              Action:
-              - lambda:AddPermission
-              - lambda:UpdateFunctionCode
-              - lambda:PublishVersion
-              - lambda:DeleteFunction
-              - lambda:RemovePermission
-              Effect: Allow
-              Resource: !Join [ ":", [ "arn:aws:lambda", !Ref "AWS::Region", !Ref "AWS::AccountId", "function:RDK-Rule-Function-*"]]
-            - Sid: RdkPermissionsS3
-              Action:
-              - s3:PutObject
-              - s3:GetObject
-              Effect: Allow
-              Resource:
-              - "arn:aws:s3:::config-rule-code-bucket*"
-              - !Join ["", [ "arn:aws:s3:::", !Join [ "-", [ !Ref CodebuildSourceS3BucketConfig, !Ref 'AWS::AccountId', !Ref 'AWS::Region']], "*"]]
-              - !Join ["", [ "arn:aws:s3:::", !Join [ "-", [ !Ref CodebuildDestinationS3BucketConfig, !Ref 'AWS::AccountId']], "*"]]
-              - !Join ["", [ "arn:aws:s3:::", !Join [ "-", [ !Ref CodePipelineArtifactS3BucketConfig, !Ref 'AWS::AccountId', !Ref 'AWS::Region']], "*"]]
-            - Sid: RdkPermissionsPassRole
-              Action:
-              - iam:CreateRole
-              - iam:PassRole
-              - iam:*RolePolicy
-              Effect: Allow
-              Resource: arn:aws:iam::*:role/rdk/*
-            - Sid: AthenaCreation
-              Action:
-              - athena:*NamedQuery
-              Effect: Allow
-              Resource: "*" 
+      AccountAggregationSources:
+        - AccountIds: !Ref ApplicationAccountIds
+          AllAwsRegions: True
+      ConfigurationAggregatorName: SecurityConfigAggregator
 
   #Firehose
-  
-  FirehoseDeliveryStreamIAMRole:
-    Condition: IsMainRegion
-    Type: 'AWS::IAM::Role'
+
+  MainComplianceFirehoseLogGroup:
+    Type: AWS::Logs::LogGroup
     Properties:
-      RoleName: ComplianceEngine-FirehoseDeliveryStreamRole
-      Path: /
-      ManagedPolicyArns:
-        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaRole'
-      AssumeRolePolicyDocument:
-       Statement:
-         - Action: 'sts:AssumeRole'
-           Effect: Allow
-           Principal:
-             Service: firehose.amazonaws.com
-       Version: 2012-10-17
-      Policies:
-        - 
-          PolicyName: 'Access-for-Firehose'
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Action: 
-                  - 's3:AbortMultipartUpload'
-                  - 's3:GetBucketLocation'
-                  - 's3:GetObject'
-                  - 's3:ListBucket'
-                  - 's3:ListBucketMultipartUploads'
-                  - 's3:PutObject'
-                Effect: 'Allow'
-                Resource:
-                  - !GetAtt CentralizedS3BucketComplianceEvent.Arn
-                  - !Join ['', [!GetAtt CentralizedS3BucketComplianceEvent.Arn, '/*']]
+      LogGroupName: firehose
+      RetentionInDays: 14
+
+  MainComplianceFirehoseLogStream:
+    Type: AWS::Logs::LogStream
+    Properties:
+      LogGroupName: !Ref MainComplianceFirehoseLogGroup
+      LogStreamName: compliance-engine
 
   MainComplianceFirehoseDeliveryStream:
     Condition: IsMainRegion
@@ -526,6 +501,10 @@ Resources:
     Properties: 
       DeliveryStreamName: 'Firehose-Compliance-Engine'
       ExtendedS3DestinationConfiguration:
+        CloudWatchLoggingOptions:
+          Enabled: true
+          LogGroupName: !Ref MainComplianceFirehoseLogGroup
+          LogStreamName: !Ref MainComplianceFirehoseLogStream
         BucketARN:  !Join ["", [ "arn:aws:s3:::", !Join [ "-", [ !Ref CentralizedS3BucketComplianceEventName, !Ref 'AWS::AccountId']]]]
         BufferingHints:
           IntervalInSeconds: 900
@@ -539,9 +518,11 @@ Resources:
           - Parameters: 
             - ParameterName: LambdaArn
               ParameterValue: !GetAtt LambdaETL.Arn 
-            Type: Lambda 
-    DependsOn: FirehoseDeliveryStreamIAMRole
-    
+            Type: Lambda
+    DependsOn:
+      - MainComplianceFirehoseLogGroup
+      - MainComplianceFirehoseLogStream
+
   CentralizedS3BucketComplianceEvent:
     Condition: IsMainRegion
     Type: AWS::S3::Bucket
@@ -552,26 +533,11 @@ Resources:
         Value: Security
       VersioningConfiguration:
         Status: Enabled
-
-  LambdaRuleFirehosePolicy:
-    Condition: IsMainRegion
-    Type: 'AWS::IAM::Policy'
-    Properties:
-      Roles:  
-      - ComplianceEngine-CodePipelineRole
-      PolicyName: LambdaRuleFirehosePolicy
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Action: 'firehose:PutRecord'
-            Resource: !Join 
-              - ':'
-              - - 'arn:aws:firehose'
-                - !Ref 'AWS::Region'
-                - !Ref 'AWS::AccountId'
-                - 'deliverystream/Firehose-Compliance-Engine' 
-    DependsOn: FirehoseDeliveryStreamIAMRole
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              KMSMasterKeyID: !ImportValue KMS-compliance-engine-key-id
+              SSEAlgorithm: aws:kms
 
 # ETL on the compliance event data
 
@@ -579,9 +545,9 @@ Resources:
     Condition: IsMainRegion
     Type: "AWS::Lambda::Function"
     Properties:
-      FunctionName: ComplianceEngine-ETL
+      FunctionName: !Ref LambdaETLName
       Handler: "etl_evaluations.lambda_handler"
-      Role: !GetAtt LambdaRoleETL.Arn
+      Role: !Join [ "", [ "arn:aws:iam::", !Ref 'AWS::AccountId', ":role/", !Ref LambdaRoleETLName ]]
       Environment:
         Variables:
            ComplianceWhitelist: !If [ WhitelistLocation, !Ref WhitelistLocation, 'none']
@@ -601,45 +567,3 @@ Resources:
       Principal: firehose.amazonaws.com
       SourceAccount: !Ref 'AWS::AccountId'
       SourceArn: !GetAtt MainComplianceFirehoseDeliveryStream.Arn
-      
-  LambdaRoleETL:
-    Condition: IsMainRegion
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: ComplianceEngine-LambdaETLRole
-      AssumeRolePolicyDocument:
-        Statement:
-        - Action: ['sts:AssumeRole']
-          Effect: Allow
-          Principal:
-            Service: [lambda.amazonaws.com]
-        Version: '2012-10-17'
-      Path: /
-      Policies:
-        - PolicyName: ETL-access
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-            - Sid: ETLlog
-              Action:
-              - logs:CreateLogStream
-              - logs:CreateLogGroup
-              - logs:PutLogEvents
-              - s3:List*
-              - codepipeline:StartPipelineExecution
-              Effect: Allow
-              Resource: "*"      
-            - Sid: ETLcodebuildUpdate
-              Action:
-              - codebuild:UpdateProject
-              - codebuild:BatchGetProjects
-              Effect: Allow
-              Resource: !GetAtt CodeBuildRulesTemplateProject.Arn           
-            - Sid: ETLPermissionsS3
-              Action:
-              - s3:PutObject
-              - s3:GetObject
-              Effect: Allow
-              Resource:
-              - !Join ["", [ "arn:aws:s3:::", !Join [ "-", [ !Ref CodebuildSourceS3BucketConfig, !Ref 'AWS::AccountId', !Ref 'AWS::Region']], "*"]]
-              - !Join ["", [ "arn:aws:s3:::", !Join [ "-", [ !Ref CodebuildDestinationS3BucketConfig, !Ref 'AWS::AccountId', !Ref 'AWS::Region']], "*"]]

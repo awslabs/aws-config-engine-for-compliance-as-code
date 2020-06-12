@@ -3,15 +3,17 @@ import json
 import re
 import time
 import boto3
+import add_rule_tags
 
 main_region = sys.argv[1]
 template_bucket_name_prefix = sys.argv[2]
 initial_deployed_rule = sys.argv[3]
 other_regions = sys.argv[4]
+remote_execution_role_name = sys.argv[5]
+remote_execution_path_name = sys.argv[6]
+stack_name = sys.argv[7]
 default_template_name = "default.json"
-remote_execution_role_name = "AWSConfigAndComplianceAuditRole-DO-NOT-DELETE"
-remote_execution_path_name = "service-role/"
-stack_name = "Compliance-Engine-Benchmark-DO-NOT-DELETE"
+default_rule_tags_script_suffix = "_rule_tags.sh"
 
 central_sts_client = boto3.client('sts')
 central_account_id = central_sts_client.get_caller_identity()["Account"]
@@ -39,7 +41,6 @@ for region in all_region_list:
 
         if not re.match('^[0-9]{12}\.json$', key):
             #Skip this one
-            print("Skipping " + key)
             continue
 
         remote_account_id = key.split(".")[0]
@@ -71,6 +72,7 @@ for region in all_region_list:
             continue
 
         cfn = remote_session.client("cloudformation", region_name=region)
+        print("Start rules deployment on account {} for region {}.".format(remote_account_id, region))
         try:
             print("Attempting to update Rule stack.")
             update_response = cfn.update_stack(
@@ -89,9 +91,7 @@ for region in all_region_list:
         except Exception as e:
             if "No updates are to be performed." in str(e):
                 print("Stack already up-to-date.")
-                continue
-
-            if "does not exist" in str(e):
+            elif "does not exist" in str(e):
                 try:
                     print("Stack not found. Attempting to create Rule stack.")
                     create_response = cfn.create_stack(
@@ -107,11 +107,13 @@ for region in all_region_list:
                     )
                     print("Creation triggered for " + remote_account_id + ".")
                     list_of_account_to_review.append(remote_account_id)
-                    continue
                 except Exception as e2:
                     print("Error creating new stack: " + str(e2))
+            else:
+                print("Error no condition matched: " + str(e))
 
-            print("Error no condition matched: " + str(e))
+        #tagging config rules
+        add_rule_tags.execute_add_rule_tags_script(template_bucket_name, remote_account_id, default_rule_tags_script_suffix, remote_session, s3_client)
 
     if not list_of_account_to_review:
         continue

@@ -7,6 +7,7 @@ phases:
       - apt-get update -y
       - apt-get install zip
       - pip install rdk
+      - pip install --upgrade awscli boto3
       - curl -O -L https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64
       - chmod +x jq-linux64
       - sudo mv jq-linux64 /usr/bin/jq
@@ -18,9 +19,10 @@ phases:
       - echo Entered the build phase...
       - echo Build started on `date`
       - echo [] Create lambda for all the rules
-      - if [ "$OTHER_ACTIVE_REGIONS" != "none" ]; then chmod a+x ./rulesets-build/multi-region/deploy_lambda.sh; ./rulesets-build/multi-region/deploy_lambda.sh $OTHER_ACTIVE_REGIONS $ENGINE_RULE_NAME $AWS_DEFAULT_REGION; fi
+      - if [ "$RULES_LAMBDA_VPC_CONFIG" != "none" ]; then cp ./rulesets-build/$RULES_LAMBDA_VPC_CONFIG ./rules_lambda_vpc.json; fi
+      - chmod a+x ./rulesets-build/deploy_lambda.sh;
+      - if [ "$OTHER_ACTIVE_REGIONS" != "none" ]; then ./rulesets-build/deploy_lambda.sh $LAMBDA_ROLE_ARN $ENGINE_RULE_NAME $AWS_DEFAULT_REGION,$OTHER_ACTIVE_REGIONS; else ./rulesets-build/deploy_lambda.sh $LAMBDA_ROLE_ARN $ENGINE_RULE_NAME $AWS_DEFAULT_REGION; fi
       - cd rules
-      - rdk deploy -f --all > ../result.txt
       - echo [] List all the rulesets
       - rdk rulesets list > rulesets_list.txt
       - aws s3 cp rulesets_list.txt s3://$OUTPUT_BUCKET/rulesets_list.txt
@@ -31,12 +33,14 @@ phases:
       - echo [] Create default template for all other regions
       - if [ "$OTHER_ACTIVE_REGIONS" != "none" ]; then chmod a+x ./rulesets-build/multi-region/generate_default_template.sh; ./rulesets-build/multi-region/generate_default_template.sh $OTHER_ACTIVE_REGIONS $DEFAULT_RULESET_OTHER_REGIONS $OUTPUT_BUCKET_NO_REGION; fi
       - echo Copy Account_List if it exists
-      - if [ "$ACCOUNT_LIST" != "none" ]; then aws s3 cp s3://$ACCOUNT_LIST account_list.json; chmod a+x ./rulesets-build/generate_rule_templates_per_account.sh; ./rulesets-build/generate_rule_templates_per_account.sh $OTHER_ACTIVE_REGIONS $OUTPUT_BUCKET $OUTPUT_BUCKET_NO_REGION >> result.txt; cat account_list.json | jq -r '.AllAccounts[] | ([.Accountname, .AccountID , (.OwnerEmail | join(";")), (.Tags| join(","))] | join(","))' > account_list.csv; aws s3 cp account_list.csv s3://$OUTPUT_BUCKET/csv/account_list.csv; fi      
+      - if [ "$ACCOUNT_LIST" != "none" ]; then cp ./rulesets-build/$ACCOUNT_LIST ./account_list.json; chmod a+x ./rulesets-build/generate_rule_templates_per_account.sh; ./rulesets-build/generate_rule_templates_per_account.sh $OTHER_ACTIVE_REGIONS $OUTPUT_BUCKET $OUTPUT_BUCKET_NO_REGION; cat account_list.json | jq -r '.AllAccounts[] | ([.Accountname, .AccountID , (.OwnerEmail | join(";")), (.Tags| join(","))] | join(","))' > account_list.csv; aws s3 cp account_list.csv s3://$OUTPUT_BUCKET/csv/account_list.csv; fi
       - echo deploy/update ETL
       - zip -j etl_evaluations.zip ./rulesets-build/etl_evaluations.py
       - aws lambda update-function-code --function-name ComplianceEngine-ETL --zip-file fileb://etl_evaluations.zip 
       - echo deploy/update Athena
+      - echo hello > result.txt
       - if [ "$DATALAKE_QUERIES_BOOL" = "true" ] && [ "$FIREHOSE_KEY_LIST" != "none" ] && [ "$ATHENA_COLUMN_LIST" != "none" ]; then chmod a+x ./rulesets-build/deploy_datalake.sh; ./rulesets-build/deploy_datalake.sh "$CONFIG_CENTRAL_BUCKET" "$COMPLIANCE_EVENT_CENTRAL_BUCKET" "$FIREHOSE_KEY_LIST" "$ATHENA_COLUMN_LIST" "$ACCOUNT_LIST" "$OUTPUT_BUCKET"; fi
+      - if [ "$DATALAKE_QUERIES_BOOL" = "true" ] && [ "$FIREHOSE_KEY_LIST" != "none" ] && [ "$ATHENA_COLUMN_LIST" != "none" ]; then chmod a+x ./rulesets-build/execute_athena_named_queries.sh; ./rulesets-build/execute_athena_named_queries.sh $ACCOUNT_ID; fi
   post_build:
     commands:
       - echo Entered the post_build phase...
@@ -46,4 +50,5 @@ artifacts:
     - result.txt
     - ./rulesets-build/buildspec_deploytemplates.yaml
     - ./rulesets-build/deploy_rule_templates.py
+    - ./rulesets-build/add_rule_tags.py
   discard-paths: yes

@@ -3,12 +3,12 @@ version: 0.2
 phases:
   install:
     commands:
-      - echo "No install needed."
+      - pip install --user --upgrade awscli
   build:
     commands:
       - echo Entered the build phase...
       - echo Build started on `date`
-      - python ./deploy_rule_templates.py $AWS_DEFAULT_REGION $OUTPUT_BUCKET_NO_REGION $ENGINE_RULE_NAME $OTHER_ACTIVE_REGIONS
+      - python ./deploy_rule_templates.py $AWS_DEFAULT_REGION $OUTPUT_BUCKET_NO_REGION $ENGINE_RULE_NAME $OTHER_ACTIVE_REGIONS $REMOTE_EXE_ROLE_NAME $REMOTE_EXE_PATH_NAME $RULES_STACK_NAME
   post_build:
     commands:
       - echo Entered the post_build phase...

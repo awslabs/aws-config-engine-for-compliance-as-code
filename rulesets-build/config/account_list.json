@@ -1,0 +1,17 @@
+{
+  "AllAccounts": [{
+    "Accountname": "Compliance account",
+    "AccountID": "111111111111",
+    "OwnerEmail": ["admin1@domain.com"],
+    "RootEmail" : "root1@domain.com",
+    "Region": "us-east-1",
+    "Tags": ["baseline", "rulecriticity:medium"]
+  }, {
+    "Accountname": "Application Account",
+    "AccountID": "222222222222",
+    "OwnerEmail": ["admin1@domain.com"],
+    "RootEmail" : "root1@domain.com",
+    "Region": "us-east-1",
+    "Tags": ["baseline", "rulecriticity:medium"]
+  }]
+}

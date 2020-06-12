@@ -1,0 +1,11 @@
+{
+  "AllActiveRegions":
+  {
+    "us-east-1": {
+    },
+    "example_us-east-2": {
+      "LambdaSubnets": "subnet-xxxxx,subnet-xxxxx",
+      "LambdaSecurityGroups": "sg-xxxxx,sg-xxxxx"
+    }
+  }
+}

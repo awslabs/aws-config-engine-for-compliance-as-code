@@ -1,5 +1,5 @@
 #
-# Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2017-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License").
 # You may not use this file except in compliance with the License.
@@ -25,14 +25,14 @@ Metadata:
          - MainRegion
          - ComplianceAccountId
          - ConfigAndComplianceAuditRoleName
+         - ConfigAndComplianceAuditRolePath
          - CentralizedS3BucketConfigFullName
       - Label:
           default: (Advanced User Only) Deployment options
         Parameters:
          - DeployAWSConfig
-         - ForceDeploymentRoleInMainRegionOnly
          - RuleFrequency
-         - LambdaFunctionName
+         - ComplianceLambdaFunctionName
          - EngineComplianceRule
 
 Parameters:
@@ -53,6 +53,10 @@ Parameters:
   ConfigAndComplianceAuditRoleName:
     Description: (Only if DeployAWSConfig is set to "true") Role Name of the Compliance Account Cross Account Role
     Default: AWSConfigAndComplianceAuditRole-DO-NOT-DELETE
+    Type: String
+  ConfigAndComplianceAuditRolePath:
+    Description: (Only if DeployAWSConfig is set to "true") Role Path of the Compliance Account Cross Account Role
+    Default: service-role/
     Type: String
   MainRegion:
     Description: Region which is designated as main Region in your Compliance Account.
@@ -90,23 +94,16 @@ Parameters:
      - TwentyFour_Hours
     Default: One_Hour
     Type: String
-  LambdaFunctionName:
-    Description: Lambda name in the Compliance Account
+  ComplianceLambdaFunctionName:
+    Description: Compliance Engine Lambda name in the Compliance Account
     Default: RDK-Rule-Function-COMPLIANCERULESETLATESTINSTALLED
     Type: String
   DeployAWSConfig:
     Description: Set to "true" to configure AWS Config. If set to "false", you must give the compliance account to assume the AWS Config service Role, and as well permissions to deploy CloudFormation templates and control Config.
-    Default: true
+    Default: false
     AllowedValues:
       - true
       - false
-    Type: String
-  ForceDeploymentRoleInMainRegionOnly:
-    Description: Set to "force" to deploy the ConfigAndComplianceAuditRoleName. This options only works in the main Region.
-    Default: default
-    AllowedValues:
-      - default
-      - force
     Type: String
 
 Conditions:
@@ -114,7 +111,6 @@ Conditions:
   NotMainRegion: !Not [!Equals [!Ref 'AWS::Region', !Ref MainRegion ]]
   SetConfig: !Equals [ !Ref DeployAWSConfig, 'true']
   NoSetConfig: !Equals [ !Ref DeployAWSConfig, 'false']
-  ForceDeployRole: !Equals [ !Ref ForceDeploymentRoleInMainRegionOnly, 'force']
   SetConfigMain: !And
       - !Condition IsMainRegion
       - !Condition SetConfig
@@ -127,12 +123,6 @@ Conditions:
   NoSetConfigNotMain: !And
       - !Condition NotMainRegion
       - !Condition NoSetConfig
-  ForceDeployRoleMain: !And
-      - !Condition IsMainRegion
-      - !Condition ForceDeployRole 
-  DeployRole: !Or
-      - !Condition SetConfigMain
-      - !Condition ForceDeployRoleMain
       
 Resources:
   MainConfigurationRecorder:
@@ -142,10 +132,7 @@ Resources:
       RecordingGroup:
         AllSupported: true
         IncludeGlobalResourceTypes: true
-      RoleARN: !Join ["", ["arn:aws:iam::", !Ref 'AWS::AccountId', ":role/service-role/", !Ref ConfigAndComplianceAuditRoleName]]
-    DependsOn:
-    - AWSConfigAndComplianceRole
-    - ConfigS3WritePolicy
+      RoleARN: !Join ["", ["arn:aws:iam::", !Ref 'AWS::AccountId', ":role/", !Ref ConfigAndComplianceAuditRolePath, !Ref ConfigAndComplianceAuditRoleName]]
 
   NotMainConfigurationRecorder:
     Condition: SetConfigNotMain
@@ -154,7 +141,7 @@ Resources:
       RecordingGroup:
         AllSupported: true
         IncludeGlobalResourceTypes: false
-      RoleARN: !Join ["", ["arn:aws:iam::", !Ref 'AWS::AccountId', ":role/service-role/", !Ref ConfigAndComplianceAuditRoleName]]
+      RoleARN: !Join ["", ["arn:aws:iam::", !Ref 'AWS::AccountId', ":role/", !Ref ConfigAndComplianceAuditRolePath, !Ref ConfigAndComplianceAuditRoleName]]
 
   MainDeliveryChannel:
     Condition: SetConfigMain
@@ -163,8 +150,6 @@ Resources:
       ConfigSnapshotDeliveryProperties:
         DeliveryFrequency: TwentyFour_Hours
       S3BucketName: !Ref CentralizedS3BucketConfigFullName
-    DependsOn:
-    - ConfigS3WritePolicy
 
   NotMainDeliveryChannel:
     Condition: SetConfigNotMain
@@ -175,85 +160,10 @@ Resources:
       S3BucketName: !Ref CentralizedS3BucketConfigFullName
 
   AggregationAuthorization:
-    Condition: SetConfig
     Type: "AWS::Config::AggregationAuthorization"
     Properties:
       AuthorizedAccountId: !Ref ComplianceAccountId
-      AuthorizedAwsRegion: !Ref 'AWS::Region'
-
-  AWSConfigAndComplianceRole:
-    Condition: DeployRole
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Statement:
-        - Effect: Allow
-          Action:
-          - sts:AssumeRole
-          Principal:
-            Service: config.amazonaws.com
-        - Effect: Allow
-          Action:
-          - sts:AssumeRole
-          Principal:
-            AWS: !Ref ComplianceAccountId
-        Version: '2012-10-17'
-      ManagedPolicyArns:
-      - 'arn:aws:iam::aws:policy/service-role/AWSConfigRole'
-      - 'arn:aws:iam::aws:policy/ReadOnlyAccess'
-      Path: /service-role/
-      RoleName: !Ref ConfigAndComplianceAuditRoleName
-
-  ConfigS3WritePolicy:
-    Condition: DeployRole
-    Type: 'AWS::IAM::Policy'
-    Properties:
-      Roles:
-      - !Ref ConfigAndComplianceAuditRoleName
-      PolicyName: !Join
-        - '-'
-        - - ConfigS3Write
-          - !Ref 'AWS::AccountId'
-          - !Ref 'AWS::Region'
-      PolicyDocument:
-        Statement:
-        - Action:
-          - s3:PutObject
-          Effect: Allow
-          Resource:
-          - !Join [ "", [ "arn:aws:s3:::", !Ref CentralizedS3BucketConfigFullName, "/AWSLogs/", !Ref 'AWS::AccountId', "/*"] ]
-          Sid: !Join ["", ["ConfigS3Write", !Ref 'AWS::AccountId'] ]
-        Version: "2012-10-17"
-    DependsOn:
-    - AWSConfigAndComplianceRole
-
-  ConfigDeployPolicy:
-    Condition: DeployRole
-    Type: 'AWS::IAM::Policy'
-    Properties:
-      Roles:
-      - !Ref ConfigAndComplianceAuditRoleName
-      PolicyName: !Join
-        - '-'
-        - - ConfigDeploy
-          - !Ref 'AWS::AccountId'
-          - !Ref 'AWS::Region'
-      PolicyDocument:
-        Statement:
-        - Action:
-          - cloudformation:*
-          Effect: Allow
-          Resource:
-          - !Join [ "", [ "arn:aws:cloudformation:*:", !Ref 'AWS::AccountId', ":stack/Compliance-Engine-Benchmark-DO-NOT-DELETE*" ]]
-          Sid: !Join ["", ["ConfigDeployCfn", !Ref 'AWS::AccountId'] ]
-        - Action:
-          - config:*
-          Effect: Allow
-          Resource: "*"
-          Sid: !Join ["", ["ConfigAccess", !Ref 'AWS::AccountId'] ]
-        Version: "2012-10-17"
-    DependsOn:
-    - AWSConfigAndComplianceRole
+      AuthorizedAwsRegion: !Ref MainRegion
 
   MainCaCReporter:
     Condition: SetConfigMain
@@ -263,12 +173,14 @@ Resources:
       Description: Check that the latest Compliance-as-code template is installed in this account.
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ":", [ 'arn:aws:lambda', !Ref "AWS::Region", !Ref ComplianceAccountId, 'function', !Ref LambdaFunctionName ] ]
+        SourceIdentifier: !Join [ ":", [ 'arn:aws:lambda', !Ref "AWS::Region", !Ref ComplianceAccountId, 'function', !Ref ComplianceLambdaFunctionName ] ]
         SourceDetails:
         -
           EventSource: "aws.config"
           MaximumExecutionFrequency: !Ref RuleFrequency
           MessageType: ScheduledNotification
+      InputParameters:
+        ExecutionRoleName: !Sub "${ConfigAndComplianceAuditRolePath}${ConfigAndComplianceAuditRoleName}"
     DependsOn:
     - MainConfigurationRecorder
     - MainDeliveryChannel
@@ -281,12 +193,14 @@ Resources:
       Description: Check that the latest Compliance-as-code template is installed in this account.
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ":", [ 'arn:aws:lambda', !Ref "AWS::Region", !Ref ComplianceAccountId, 'function', !Ref LambdaFunctionName ] ]
+        SourceIdentifier: !Join [ ":", [ 'arn:aws:lambda', !Ref "AWS::Region", !Ref ComplianceAccountId, 'function', !Ref ComplianceLambdaFunctionName ] ]
         SourceDetails:
         -
           EventSource: "aws.config"
           MaximumExecutionFrequency: !Ref RuleFrequency
           MessageType: ScheduledNotification
+      InputParameters:
+        ExecutionRoleName: !Sub "${ConfigAndComplianceAuditRolePath}${ConfigAndComplianceAuditRoleName}"
 
   NotMainCaCReporter:
     Condition: SetConfigNotMain
@@ -296,12 +210,14 @@ Resources:
       Description: Check that the latest template for the RuleSet is installed in this account.
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ":", [ 'arn:aws:lambda', !Ref "AWS::Region", !Ref ComplianceAccountId, 'function', !Ref LambdaFunctionName ] ]
+        SourceIdentifier: !Join [ ":", [ 'arn:aws:lambda', !Ref "AWS::Region", !Ref ComplianceAccountId, 'function', !Ref ComplianceLambdaFunctionName ] ]
         SourceDetails:
         -
           EventSource: "aws.config"
           MaximumExecutionFrequency: !Ref RuleFrequency
           MessageType: ScheduledNotification
+      InputParameters:
+        ExecutionRoleName: !Sub "${ConfigAndComplianceAuditRolePath}${ConfigAndComplianceAuditRoleName}"
     DependsOn:
     - NotMainConfigurationRecorder
     - NotMainDeliveryChannel
@@ -314,9 +230,11 @@ Resources:
       Description: Check that the latest template for the RuleSet is installed in this account.
       Source:
         Owner: CUSTOM_LAMBDA
-        SourceIdentifier: !Join [ ":", [ 'arn:aws:lambda', !Ref "AWS::Region", !Ref ComplianceAccountId, 'function', !Ref LambdaFunctionName ] ]
+        SourceIdentifier: !Join [ ":", [ 'arn:aws:lambda', !Ref "AWS::Region", !Ref ComplianceAccountId, 'function', !Ref ComplianceLambdaFunctionName ] ]
         SourceDetails:
         -
           EventSource: "aws.config"
           MaximumExecutionFrequency: !Ref RuleFrequency
           MessageType: ScheduledNotification
+      InputParameters:
+        ExecutionRoleName: !Sub "${ConfigAndComplianceAuditRolePath}${ConfigAndComplianceAuditRoleName}"

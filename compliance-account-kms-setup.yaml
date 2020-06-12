@@ -1,0 +1,138 @@
+#
+# Copyright 2017-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License").
+# You may not use this file except in compliance with the License.
+# A copy of the License is located at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# or in the "license" file accompanying this file. This file is distributed
+# on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied. See the License for the specific language governing
+# permissions and limitations under the License.
+#
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: KMS key for s3 encryption for compliance engine
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Compliance-as-Code Engine Configuration
+        Parameters:
+         - KMSAdminRoleName
+      - Label:
+          default: (Advanced User Only) Deployment options
+        Parameters:
+         - ComplianceEngineCodeBuildRoleName
+         - ComplianceEngineCodePipelineRoleName
+         - FirehoseDeliveryStreamIAMRoleName
+         - RDKLambdaRoleName
+         - LambdaRoleETLName
+
+Parameters:
+  KMSAdminRoleName:
+    Type: String
+    Description: 'KMS key admin access will be granted to the administer with this IAM role arn assigned'
+  ComplianceEngineCodeBuildRoleName:
+    Description: Role Name of the Compliance Account CodeBuild Role
+    Default: ComplianceEngine-CodeBuildRole
+    Type: String
+  ComplianceEngineCodePipelineRoleName:
+    Description: Role Name of the Compliance Account CodePipeline Role
+    Default: ComplianceEngine-CodePipelineRole
+    Type: String
+  FirehoseDeliveryStreamIAMRoleName:
+    Description: Role Name of the Compliance Account Firehose Delivery Stream Role
+    Default: ComplianceEngine-FirehoseDeliveryStreamRole
+    Type: String
+  RDKLambdaRoleName:
+    Description: IAM role name for all the custom rule lambda functions
+    Default: ComplianceEngine-rdkLambdaRole
+    Type: String
+  LambdaRoleETLName:
+    Description: Default ETL LambdaRole name in compliance account.
+    Default: ComplianceEngine-LambdaETLRole
+    Type: String
+  GrantComplianceEngineAccess:
+    Description: Set true to add compliance engine roles to the key policy
+    Default: false
+    AllowedValues:
+      - true
+      - false
+    Type: String
+
+Conditions:
+  cGrantComplianceEngineAccess: !Equals [ !Ref GrantComplianceEngineAccess, 'true']
+
+Resources:
+  # Create encryption key
+  ConfigEncryptionKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: "Encrypts config resources (S3 & SNS)"
+      KeyPolicy:
+        Version: "2012-10-17"
+        Id: kms-configpolicy
+        Statement:
+          # this policy is required, so that IAM policies/users/roles can get access to this key
+          - Sid: "Enable Root User"
+            Effect: "Allow"
+            Action: "kms:*"
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Resource: "*"
+
+          # who is allowed to administer this key
+          - Sid: "Allow access for Key Administrators"
+            Effect: "Allow"
+            Action:
+              - "kms:Create*"
+              - "kms:Describe*"
+              - "kms:Enable*"
+              - "kms:List*"
+              - "kms:Put*"
+              - "kms:Update*"
+              - "kms:Revoke*"
+              - "kms:Disable*"
+              - "kms:Get*"
+              - "kms:Delete*"
+              - "kms:TagResource"
+              - "kms:UntagResource"
+              - "kms:ScheduleKeyDeletion"
+              - "kms:CancelKeyDeletion"
+            Principal:
+              AWS:
+                - !Sub "arn:aws:iam::${AWS::AccountId}:role/${KMSAdminRoleName}"
+            Resource: "*"
+
+          - !If
+            - cGrantComplianceEngineAccess
+            - Sid: "Allow access for automation"
+              Effect: "Allow"
+              Action:
+                - kms:Decrypt
+                - kms:DescribeKey
+                - kms:Encrypt
+                - kms:GenerateDataKey
+                - kms:ReEncrypt*
+              Principal:
+                AWS:
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ComplianceEngineCodePipelineRoleName}"
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ComplianceEngineCodeBuildRoleName}"
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/${FirehoseDeliveryStreamIAMRoleName}"
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/rdk/${RDKLambdaRoleName}"
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/${LambdaRoleETLName}"
+#                  Add this if you have quicksight setup
+#                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/aws-quicksight-service-role-v0"
+              Resource: "*"
+            - !Ref AWS::NoValue
+
+Outputs:
+  ComplianceAccountKMS:
+    Description: KMS key ID
+    Value: !Ref ConfigEncryptionKey
+    Export:
+      Name: "KMS-compliance-engine-key-id"

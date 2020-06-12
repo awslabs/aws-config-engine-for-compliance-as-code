@@ -2,9 +2,9 @@
   "Version": "1.0",
   "Parameters": {
     "RuleName": "COMPLIANCE_RULESET_LATEST_INSTALLED",
-    "SourceRuntime": "python3.6",
+    "SourceRuntime": "python3.6-lib",
     "CodeKey": "COMPLIANCE_RULESET_LATEST_INSTALLED.zip",
-    "InputParameters": "{}",
+    "InputParameters": "{\"ExecutionRoleName\": \"service-role/AWSConfigAndComplianceAuditRole-DO-NOT-DELETE\"}",
     "OptionalParameters": "{}",
     "SourcePeriodic": "TwentyFour_Hours"
   }

@@ -1,6 +1,6 @@
 {
 	"Whitelist": [{
-			"ConfigRuleArn": "arn:aws:config:REGION:ACCOUNT_1:config-rule/config-rule-UUID_OF_THE_RULE_1",
+			"RuleARN": "arn:aws:config:REGION:ACCOUNT_1:config-rule/config-rule-UUID_OF_THE_RULE_1",
 			"WhitelistedResources": [{
 					"ResourceIds": [
 						"RESOURCE_ID"
@@ -10,7 +10,7 @@
 				}
 			]
 		}, {
-			"ConfigRuleArn": "arn:aws:config:REGION:ACCOUNT_2:config-rule/config-rule-UUID_OF_THE_RULE_2",
+			"RuleARN": "arn:aws:config:REGION:ACCOUNT_2:config-rule/config-rule-UUID_OF_THE_RULE_2",
 			"WhitelistedResources": [{
 					"ResourceIds": [
 						"RESOURCE_ID_1",
