@@ -1,5 +1,6 @@
 # NOTICE
 **This project is not maintained any more: please reachout to rdk-maintainers@amazon.com for any questions.**
+**Please checkout branch Version2 for latest features which support a more complicated use cases and this version will remain as a minimum vialbe product**
 
 # Engine for Compliance-as-code
 
